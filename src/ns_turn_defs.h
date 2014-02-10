@@ -31,8 +31,8 @@
 #ifndef __IOADEFS__
 #define __IOADEFS__
 
-#define TURN_SERVER_VERSION "3.2.2.6"
-#define TURN_SERVER_VERSION_NAME "Marshal West"
+#define TURN_SERVER_VERSION "3.5.X.X"
+#define TURN_SERVER_VERSION_NAME "Threetrees"
 #define TURN_SOFTWARE "Citrix-"TURN_SERVER_VERSION" '"TURN_SERVER_VERSION_NAME"'"
 
 #if (defined(__unix__) || defined(unix)) && !defined(USG)

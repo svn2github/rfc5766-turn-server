@@ -150,6 +150,10 @@
 #define STUN_ATTRIBUTE_MOBILITY_SUPPORT (0x8000)
 /* <<== Mobility */
 
+/* Origin ==>> */
+#define STUN_ATTRIBUTE_ORIGIN (0x802F)
+/* <<== Origin */
+
 ////////////////////////////////////////////////
 
 #endif //__LIB_TURN_MSG_DEFS__
