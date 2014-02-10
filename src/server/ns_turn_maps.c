@@ -56,9 +56,7 @@ static int ur_map_init(ur_map* map) {
   return -1;
 }
 
-static int ur_map_valid(const ur_map *map) {
-  return (map && map->h && map->magic==MAGIC_HASH);
-}
+#define ur_map_valid(map) ((map) && ((map)->h) && ((map)->magic==MAGIC_HASH))
 
 ur_map* ur_map_create() {
   ur_map *map=(ur_map*)turn_malloc(sizeof(ur_map));
@@ -749,23 +747,11 @@ static const addr_elem* addr_list_get_const(const addr_list_header* slh, const i
 
 ////////// ADDR MAPS ////////////////////////////////////////////
 
-static int addr_map_index(ioa_addr* key) {
-  u32bits hash = addr_hash(key);
-  hash = hash & (ADDR_MAP_SIZE - 1);
-  return (int)hash;
-}
+#define addr_map_index(key) (addr_hash((key)) & (ADDR_MAP_SIZE - 1))
 
-static addr_list_header* get_addr_list_header(ur_addr_map *map, ioa_addr* key) {
-  return &(map->lists[addr_map_index(key)]);
-}
+#define get_addr_list_header(map, key) (&((map)->lists[addr_map_index((key))]))
 
-static const addr_list_header* get_addr_list_header_const(const ur_addr_map *map, ioa_addr* key) {
-  return &(map->lists[addr_map_index(key)]);
-}
-
-static int ur_addr_map_valid(const ur_addr_map *map) {
-  return (map && map->magic==MAGIC_HASH);
-}
+#define ur_addr_map_valid(map) ((map) && ((map)->magic==MAGIC_HASH))
 
 void ur_addr_map_init(ur_addr_map* map) {
   if(map) {
@@ -820,7 +806,7 @@ int ur_addr_map_get(const ur_addr_map* map, ioa_addr* key, ur_addr_map_value_typ
 
   else {
 
-    const addr_list_header* slh = get_addr_list_header_const(map, key);
+    const addr_list_header* slh = get_addr_list_header(map, key);
 
     const addr_elem *elem = addr_list_get_const(slh, key);
     if(elem) {

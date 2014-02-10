@@ -3017,7 +3017,7 @@ void ioa_network_buffer_header_init(ioa_network_buffer_handle nbh)
 
 u08bits *ioa_network_buffer_data(ioa_network_buffer_handle nbh)
 {
-  stun_buffer_list_elem *elem = (stun_buffer_list_elem *)nbh;
+	stun_buffer_list_elem *elem = (stun_buffer_list_elem *)nbh;
 	return elem->buf.buf + elem->buf.offset - elem->buf.coffset;
 }
 
