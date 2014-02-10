@@ -31,7 +31,7 @@
 #ifndef __IOADEFS__
 #define __IOADEFS__
 
-#define TURN_SERVER_VERSION "3.5.X.X"
+#define TURN_SERVER_VERSION "3.3.0.0"
 #define TURN_SERVER_VERSION_NAME "Threetrees"
 #define TURN_SOFTWARE "Citrix-"TURN_SERVER_VERSION" '"TURN_SERVER_VERSION_NAME"'"
 
