@@ -47,7 +47,7 @@ NULL, NULL,
 
 NULL,
 
-SHATYPE_SHA1, DH_1066, "", DEFAULT_EC_CURVE_NAME, "",
+DH_1066, "", DEFAULT_EC_CURVE_NAME, "",
 "turn_server_cert.pem","turn_server_pkey.pem", "", "",
 0,0,0,0,0,
 #if defined(TURN_NO_TLS)
@@ -62,7 +62,7 @@ SHATYPE_SHA1, DH_1066, "", DEFAULT_EC_CURVE_NAME, "",
 0,
 #endif
 
-TURN_VERBOSE_NONE,0,0,0,0,0,0,0,
+TURN_VERBOSE_NONE,0,0,
 "/var/run/turnserver.pid",
 DEFAULT_STUN_PORT,DEFAULT_STUN_TLS_PORT,0,0,1,
 0,0,0,0,
@@ -81,23 +81,28 @@ NEV_UNKNOWN,
 { "Unknown", "UDP listening socket per session", "UDP thread per network endpoint", "UDP thread per CPU core" },
 //////////////// Relay servers //////////////////////////////////
 0,LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
-0,NULL,0,NULL,0,DEFAULT_GENERAL_RELAY_SERVERS_NUMBER,0,0,
+0,NULL,0,NULL,DEFAULT_GENERAL_RELAY_SERVERS_NUMBER,0,
 ////////////// Auth server /////////////////////////////////////
 {NULL,NULL,NULL,0},
 /////////////// AUX SERVERS ////////////////
 {NULL,0,{0,NULL}},0,
 /////////////// ALTERNATE SERVERS ////////////////
 {NULL,0,{0,NULL}},{NULL,0,{0,NULL}},
-/////////////// USERS ////////////////////////////
-{
-  TURN_USERDB_TYPE_FILE,"\0",0,0,0,0,
-    {TURN_CREDENTIALS_NONE,0,0,0,NULL,NULL,NULL},
-    "\0",
-    0,':',
-    {NULL,0}
-},
 /////////////// stop server ////////////////
-  0
+0,
+/////////////// DEFAULT REALM ////////////////////
+{
+  "\0", /* name */
+  SHATYPE_SHA1,0,0,0,0,0,0,0,
+
+/////////////// USERS ////////////////////////////
+  {
+    TURN_USERDB_TYPE_FILE,"\0",0,0,0,0,
+      {TURN_CREDENTIALS_NONE,0,0,0,NULL,NULL,NULL},
+      0,':',
+      {NULL,0}
+  },
+}
 };
 
 //////////////// OpenSSL Init //////////////////////
@@ -705,6 +710,7 @@ static void set_option(int c, char *value)
 	  break;
   case NE_TYPE_OPT:
   {
+	printf("%s: 111.111: <%s>\n",__FUNCTION__,value);
 	  int ne = atoi(value);
 	  if((ne<(int)NEV_MIN)||(ne>(int)NEV_MAX)) {
 		  TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "ERROR: wrong version of the network engine: %d\n",ne);
@@ -727,10 +733,10 @@ static void set_option(int c, char *value)
 	  cli_max_output_sessions = atoi(value);
 	  break;
   case SERVER_RELAY_OPT:
-	  turn_params.server_relay = get_bool_value(value);
+	  turn_params.default_realm_params.server_relay = get_bool_value(value);
 	  break;
   case MOBILITY_OPT:
-	  turn_params.mobility = get_bool_value(value);
+	  turn_params.default_realm_params.mobility = get_bool_value(value);
 	  break;
   case NO_CLI_OPT:
 	  use_cli = !get_bool_value(value);
@@ -811,13 +817,13 @@ static void set_option(int c, char *value)
 		turn_params.max_port = atoi(value);
 		break;
 	case SECURE_STUN_OPT:
-		turn_params.secure_stun = get_bool_value(value);
+		turn_params.default_realm_params.secure_stun = get_bool_value(value);
 		break;
 	case SHA256_OPT:
 		if(get_bool_value(value))
-			turn_params.shatype = SHATYPE_SHA256;
+			turn_params.default_realm_params.shatype = SHATYPE_SHA256;
 		else
-			turn_params.shatype = SHATYPE_SHA1;
+			turn_params.default_realm_params.shatype = SHATYPE_SHA1;
 		break;
 	case NO_MULTICAST_PEERS_OPT:
 		turn_params.no_multicast_peers = get_bool_value(value);
@@ -826,17 +832,17 @@ static void set_option(int c, char *value)
 		turn_params.no_loopback_peers = get_bool_value(value);
 		break;
 	case STALE_NONCE_OPT:
-		turn_params.stale_nonce = get_bool_value(value);
+		turn_params.default_realm_params.stale_nonce = get_bool_value(value);
 		break;
 	case MAX_ALLOCATE_TIMEOUT_OPT:
 		TURN_MAX_ALLOCATE_TIMEOUT = atoi(value);
 		TURN_MAX_ALLOCATE_TIMEOUT_STUN_ONLY = atoi(value);
 		break;
 	case 'S':
-		turn_params.stun_only = get_bool_value(value);
+		turn_params.default_realm_params.stun_only = get_bool_value(value);
 		break;
 	case NO_STUN_OPT:
-		turn_params.no_stun = get_bool_value(value);
+		turn_params.default_realm_params.no_stun = get_bool_value(value);
 		break;
 	case 'L':
 		add_listener_addr(value);
@@ -894,57 +900,57 @@ static void set_option(int c, char *value)
 		break;
 	case 'a':
 		if (get_bool_value(value)) {
-			turn_params.users_params.users.ct = TURN_CREDENTIALS_LONG_TERM;
-			turn_params.users_params.use_lt_credentials=1;
+			turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_LONG_TERM;
+			turn_params.default_realm_params.users_params.use_lt_credentials=1;
 		} else {
-			turn_params.users_params.users.ct = TURN_CREDENTIALS_UNDEFINED;
-			turn_params.users_params.use_lt_credentials=0;
+			turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_UNDEFINED;
+			turn_params.default_realm_params.users_params.use_lt_credentials=0;
 		}
 		break;
 	case 'A':
 		if (get_bool_value(value)) {
-			turn_params.users_params.users.ct = TURN_CREDENTIALS_SHORT_TERM;
-			turn_params.users_params.use_st_credentials=1;
+			turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_SHORT_TERM;
+			turn_params.default_realm_params.users_params.use_st_credentials=1;
 		} else {
-			turn_params.users_params.users.ct = TURN_CREDENTIALS_UNDEFINED;
-			turn_params.users_params.use_st_credentials=0;
+			turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_UNDEFINED;
+			turn_params.default_realm_params.users_params.use_st_credentials=0;
 		}
 		break;
 	case 'z':
 		if (!get_bool_value(value)) {
-			turn_params.users_params.users.ct = TURN_CREDENTIALS_UNDEFINED;
-			turn_params.users_params.anon_credentials = 0;
+			turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_UNDEFINED;
+			turn_params.default_realm_params.users_params.anon_credentials = 0;
 		} else {
-			turn_params.users_params.users.ct = TURN_CREDENTIALS_NONE;
-			turn_params.users_params.anon_credentials = 1;
+			turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_NONE;
+			turn_params.default_realm_params.users_params.anon_credentials = 1;
 		}
 		break;
 	case 'f':
-		turn_params.fingerprint = get_bool_value(value);
+		turn_params.default_realm_params.fingerprint = get_bool_value(value);
 		break;
 	case 'u':
 		add_user_account(value,0);
 		break;
 	case 'b':
-		STRCPY(turn_params.users_params.userdb, value);
-		turn_params.users_params.userdb_type = TURN_USERDB_TYPE_FILE;
+		STRCPY(turn_params.default_realm_params.users_params.userdb, value);
+		turn_params.default_realm_params.users_params.userdb_type = TURN_USERDB_TYPE_FILE;
 		break;
 #if !defined(TURN_NO_PQ)
 	case 'e':
-		STRCPY(turn_params.users_params.userdb, value);
-		turn_params.users_params.userdb_type = TURN_USERDB_TYPE_PQ;
+		STRCPY(turn_params.default_realm_params.users_params.userdb, value);
+		turn_params.default_realm_params.users_params.userdb_type = TURN_USERDB_TYPE_PQ;
 		break;
 #endif
 #if !defined(TURN_NO_MYSQL)
 	case 'M':
-		STRCPY(turn_params.users_params.userdb, value);
-		turn_params.users_params.userdb_type = TURN_USERDB_TYPE_MYSQL;
+		STRCPY(turn_params.default_realm_params.users_params.userdb, value);
+		turn_params.default_realm_params.users_params.userdb_type = TURN_USERDB_TYPE_MYSQL;
 		break;
 #endif
 #if !defined(TURN_NO_HIREDIS)
 	case 'N':
-		STRCPY(turn_params.users_params.userdb, value);
-		turn_params.users_params.userdb_type = TURN_USERDB_TYPE_REDIS;
+		STRCPY(turn_params.default_realm_params.users_params.userdb, value);
+		turn_params.default_realm_params.users_params.userdb_type = TURN_USERDB_TYPE_REDIS;
 		break;
 	case 'O':
 		STRCPY(turn_params.redis_statsdb, value);
@@ -952,23 +958,23 @@ static void set_option(int c, char *value)
 		break;
 #endif
 	case AUTH_SECRET_OPT:
-		turn_params.users_params.use_auth_secret_with_timestamp = 1;
+		turn_params.default_realm_params.users_params.use_auth_secret_with_timestamp = 1;
 		break;
 	case STATIC_AUTH_SECRET_VAL_OPT:
-		add_to_secrets_list(&turn_params.users_params.static_auth_secrets,value);
-		turn_params.users_params.use_auth_secret_with_timestamp = 1;
+		add_to_secrets_list(&turn_params.default_realm_params.users_params.static_auth_secrets,value);
+		turn_params.default_realm_params.users_params.use_auth_secret_with_timestamp = 1;
 		break;
 	case AUTH_SECRET_TS_EXP:
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Option --secret-ts-exp-time deprecated and has no effect.\n");
 		break;
 	case 'r':
-		STRCPY(turn_params.users_params.global_realm,value);
+		STRCPY(turn_params.default_realm_params.name,value);
 		break;
 	case 'q':
-		turn_params.users_params.users.user_quota = atoi(value);
+		turn_params.default_realm_params.users_params.users.user_quota = atoi(value);
 		break;
 	case 'Q':
-		turn_params.users_params.users.total_quota = atoi(value);
+		turn_params.default_realm_params.users_params.users.total_quota = atoi(value);
 		break;
 	case 's':
 		turn_params.max_bps = (band_limit_t)atol(value);
@@ -1041,7 +1047,7 @@ static void set_option(int c, char *value)
 		break;
 	case 'C':
 		if(value && *value) {
-			turn_params.users_params.rest_api_separator=*value;
+			turn_params.default_realm_params.users_params.rest_api_separator=*value;
 		}
 		break;
 	/* these options have been already taken care of before: */
@@ -1242,25 +1248,25 @@ static int adminmain(int argc, char **argv)
 			break;
 #endif
 		case 'b':
-		  STRCPY(turn_params.users_params.userdb,optarg);
-		  turn_params.users_params.userdb_type = TURN_USERDB_TYPE_FILE;
+		  STRCPY(turn_params.default_realm_params.users_params.userdb,optarg);
+		  turn_params.default_realm_params.users_params.userdb_type = TURN_USERDB_TYPE_FILE;
 		  break;
 #if !defined(TURN_NO_PQ)
 		case 'e':
-		  STRCPY(turn_params.users_params.userdb,optarg);
-		  turn_params.users_params.userdb_type = TURN_USERDB_TYPE_PQ;
+		  STRCPY(turn_params.default_realm_params.users_params.userdb,optarg);
+		  turn_params.default_realm_params.users_params.userdb_type = TURN_USERDB_TYPE_PQ;
 		  break;
 #endif
 #if !defined(TURN_NO_MYSQL)
 		case 'M':
-		  STRCPY(turn_params.users_params.userdb,optarg);
-		  turn_params.users_params.userdb_type = TURN_USERDB_TYPE_MYSQL;
+		  STRCPY(turn_params.default_realm_params.users_params.userdb,optarg);
+		  turn_params.default_realm_params.users_params.userdb_type = TURN_USERDB_TYPE_MYSQL;
 		  break;
 #endif
 #if !defined(TURN_NO_HIREDIS)
 		case 'N':
-		  STRCPY(turn_params.users_params.userdb,optarg);
-		  turn_params.users_params.userdb_type = TURN_USERDB_TYPE_REDIS;
+		  STRCPY(turn_params.default_realm_params.users_params.userdb,optarg);
+		  turn_params.default_realm_params.users_params.userdb_type = TURN_USERDB_TYPE_REDIS;
 		  break;
 #endif
 		case 'u':
@@ -1294,13 +1300,13 @@ static int adminmain(int argc, char **argv)
 		}
 	}
 
-	if(is_st && (turn_params.users_params.userdb_type == TURN_USERDB_TYPE_FILE)) {
+	if(is_st && (turn_params.default_realm_params.users_params.userdb_type == TURN_USERDB_TYPE_FILE)) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "ERROR: you have to use a PostgreSQL or MySQL database with short-term credentials\n");
 		exit(-1);
 	}
 
-	if(!strlen(turn_params.users_params.userdb) && (turn_params.users_params.userdb_type == TURN_USERDB_TYPE_FILE))
-		STRCPY(turn_params.users_params.userdb,DEFAULT_USERDB_FILE);
+	if(!strlen(turn_params.default_realm_params.users_params.userdb) && (turn_params.default_realm_params.users_params.userdb_type == TURN_USERDB_TYPE_FILE))
+		STRCPY(turn_params.default_realm_params.users_params.userdb,DEFAULT_USERDB_FILE);
 
 	if(ct == TA_COMMAND_UNKNOWN) {
 		fprintf(stderr,"\n%s\n", AdminUsage);
@@ -1454,7 +1460,7 @@ int main(int argc, char **argv)
 	set_network_engine();
 
 	init_listener();
-	init_secrets_list(&turn_params.users_params.static_auth_secrets);
+	init_secrets_list(&turn_params.default_realm_params.users_params.static_auth_secrets);
 	init_dynamic_ip_lists();
 
 	if (!strstr(argv[0], "turnadmin")) {
@@ -1500,11 +1506,11 @@ int main(int argc, char **argv)
 
 #endif
 
-	ns_bzero(&turn_params.users_params.users,sizeof(turn_user_db));
-	turn_params.users_params.users.ct = TURN_CREDENTIALS_NONE;
-	turn_params.users_params.users.static_accounts = ur_string_map_create(free);
-	turn_params.users_params.users.dynamic_accounts = ur_string_map_create(free);
-	turn_params.users_params.users.alloc_counters = ur_string_map_create(NULL);
+	ns_bzero(&turn_params.default_realm_params.users_params.users,sizeof(turn_user_db));
+	turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_NONE;
+	turn_params.default_realm_params.users_params.users.static_accounts = ur_string_map_create(free);
+	turn_params.default_realm_params.users_params.users.dynamic_accounts = ur_string_map_create(free);
+	turn_params.default_realm_params.users_params.users.alloc_counters = ur_string_map_create(NULL);
 
 	if(strstr(argv[0],"turnadmin"))
 		return adminmain(argc,argv);
@@ -1545,12 +1551,12 @@ int main(int argc, char **argv)
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "\nCONFIG: --no-tcp-relay: TCP relay endpoints are not allowed.\n");
 	}
 
-	if(turn_params.server_relay) {
+	if(turn_params.default_realm_params.server_relay) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIG: WARNING: --server-relay: NON-STANDARD AND DANGEROUS OPTION.\n");
 	}
 
-	if(!strlen(turn_params.users_params.userdb) && (turn_params.users_params.userdb_type == TURN_USERDB_TYPE_FILE))
-			STRCPY(turn_params.users_params.userdb,DEFAULT_USERDB_FILE);
+	if(!strlen(turn_params.default_realm_params.users_params.userdb) && (turn_params.default_realm_params.users_params.userdb_type == TURN_USERDB_TYPE_FILE))
+			STRCPY(turn_params.default_realm_params.users_params.userdb,DEFAULT_USERDB_FILE);
 
 	read_userdb_file(0);
 	update_white_and_black_lists();
@@ -1562,50 +1568,50 @@ int main(int argc, char **argv)
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "\nCONFIGURATION ALERT: Unknown argument: %s\n",argv[argc-1]);
 	}
 
-	if(turn_params.users_params.use_lt_credentials && turn_params.users_params.anon_credentials) {
+	if(turn_params.default_realm_params.users_params.use_lt_credentials && turn_params.default_realm_params.users_params.anon_credentials) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "\nCONFIG ERROR: -a and -z options cannot be used together.\n");
 		exit(-1);
 	}
 
-	if(turn_params.users_params.use_st_credentials && turn_params.users_params.anon_credentials) {
+	if(turn_params.default_realm_params.users_params.use_st_credentials && turn_params.default_realm_params.users_params.anon_credentials) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "\nCONFIG ERROR: -A and -z options cannot be used together.\n");
 		exit(-1);
 	}
 
-	if(turn_params.users_params.use_lt_credentials && turn_params.users_params.use_st_credentials) {
+	if(turn_params.default_realm_params.users_params.use_lt_credentials && turn_params.default_realm_params.users_params.use_st_credentials) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "\nCONFIG ERROR: -a and -A options cannot be used together.\n");
 		exit(-1);
 	}
 
-	if(!turn_params.users_params.use_lt_credentials && !turn_params.users_params.anon_credentials && !turn_params.users_params.use_st_credentials) {
-		if(turn_params.users_params.users_number) {
+	if(!turn_params.default_realm_params.users_params.use_lt_credentials && !turn_params.default_realm_params.users_params.anon_credentials && !turn_params.default_realm_params.users_params.use_st_credentials) {
+		if(turn_params.default_realm_params.users_params.users_number) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you specified long-term user accounts, (-u option) \n	but you did not specify the long-term credentials option\n	(-a or --lt-cred-mech option).\n 	I am turning --lt-cred-mech ON for you, but double-check your configuration.\n");
-			turn_params.users_params.users.ct = TURN_CREDENTIALS_LONG_TERM;
-			turn_params.users_params.use_lt_credentials=1;
+			turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_LONG_TERM;
+			turn_params.default_realm_params.users_params.use_lt_credentials=1;
 		} else {
-			turn_params.users_params.users.ct = TURN_CREDENTIALS_NONE;
-			turn_params.users_params.use_lt_credentials=0;
+			turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_NONE;
+			turn_params.default_realm_params.users_params.use_lt_credentials=0;
 		}
 	}
 
-	if(turn_params.users_params.use_lt_credentials) {
-		if(!turn_params.users_params.users_number && (turn_params.users_params.userdb_type == TURN_USERDB_TYPE_FILE) && !turn_params.users_params.use_auth_secret_with_timestamp) {
+	if(turn_params.default_realm_params.users_params.use_lt_credentials) {
+		if(!turn_params.default_realm_params.users_params.users_number && (turn_params.default_realm_params.users_params.userdb_type == TURN_USERDB_TYPE_FILE) && !turn_params.default_realm_params.users_params.use_auth_secret_with_timestamp) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did not specify any user account, (-u option) \n	but you did specified a long-term credentials mechanism option (-a option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
-		} else if(!turn_params.users_params.global_realm[0]) {
+		} else if(!turn_params.default_realm_params.name[0]) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did specify the long-term credentials usage\n but you did not specify the realm option (-r option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
 		}
 	}
 
-	if(turn_params.users_params.anon_credentials) {
-		if(turn_params.users_params.users_number) {
+	if(turn_params.default_realm_params.users_params.anon_credentials) {
+		if(turn_params.default_realm_params.users_params.users_number) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you specified user accounts, (-u option) \n	but you also specified the anonymous user access option (-z or --no-auth option).\n 	User accounts will be ignored.\n");
-			turn_params.users_params.users.ct = TURN_CREDENTIALS_NONE;
-			turn_params.users_params.use_lt_credentials=0;
-			turn_params.users_params.use_st_credentials=0;
+			turn_params.default_realm_params.users_params.users.ct = TURN_CREDENTIALS_NONE;
+			turn_params.default_realm_params.users_params.use_lt_credentials=0;
+			turn_params.default_realm_params.users_params.use_st_credentials=0;
 		}
 	}
 
-	if(turn_params.users_params.use_auth_secret_with_timestamp && turn_params.users_params.use_st_credentials) {
+	if(turn_params.default_realm_params.users_params.use_auth_secret_with_timestamp && turn_params.default_realm_params.users_params.use_st_credentials) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "\nCONFIGURATION ERROR: Authentication secret (REST API) cannot be used with short-term credentials mechanism.\n");
 		exit(-1);
 	}

@@ -179,6 +179,25 @@ struct auth_server {
 
 /////////// PARAMS //////////////////////////////////
 
+typedef struct _realm_params {
+
+	s08bits name[STUN_MAX_REALM_SIZE + 1];
+
+	SHATYPE shatype;
+	vint stale_nonce;
+	vint stun_only;
+	vint no_stun;
+	vint secure_stun;
+	int server_relay;
+
+	int fingerprint;
+
+	vint mobility;
+
+	users_params_t users_params;
+
+} realm_params;
+
 typedef struct _turn_params_ {
 
 //////////////// OpenSSL group //////////////////////
@@ -195,8 +214,6 @@ typedef struct _turn_params_ {
 #endif
   
   SSL_CTX *dtls_ctx;
-  
-  SHATYPE shatype;
   
   DH_KEY_SIZE dh_key_size;
   
@@ -221,11 +238,6 @@ typedef struct _turn_params_ {
 
   int verbose;
   int turn_daemon;
-  vint stale_nonce;
-  vint stun_only;
-  vint no_stun;
-  vint secure_stun;
-  int server_relay;
 
   int do_not_use_config_file;
 
@@ -281,12 +293,8 @@ typedef struct _turn_params_ {
   // then ioa_addr mapping must be used.
   ioa_addr *external_ip;
 
-  int fingerprint;
-
   turnserver_id general_relay_servers_number;
   turnserver_id udp_relay_servers_number;
-
-  vint mobility;
 
 ////////////// Auth server ////////////////
 
@@ -302,11 +310,11 @@ typedef struct _turn_params_ {
   turn_server_addrs_list_t alternate_servers_list;
   turn_server_addrs_list_t tls_alternate_servers_list;
 
-////////////// USERS /////////////////////
-
-  users_params_t users_params;
-
   int stop_turn_server;
+
+////////////// DEFAULT REALM /////////////////////
+
+  realm_params default_realm_params;
 
 } turn_params_t;
 

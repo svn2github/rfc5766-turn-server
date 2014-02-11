@@ -230,7 +230,7 @@ static void auth_server_receive_message(struct bufferevent *bev, void *ptr)
       continue;
     }
     
-    if(turn_params.users_params.use_st_credentials) {
+    if(turn_params.default_realm_params.users_params.use_st_credentials) {
       st_password_t pwd;
       if(get_user_pwd(am.username,pwd)<0) {
 	am.success = 0;
@@ -648,7 +648,8 @@ static ioa_engine_handle create_new_listener_engine(void)
 	struct event_base *eb = turn_event_base_new();
 	TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"IO method (udp listener/relay thread): %s\n",event_base_get_method(eb));
 	super_memory_t* sm = new_super_memory_region();
-	ioa_engine_handle e = create_ioa_engine(sm, eb, turn_params.listener.tp, turn_params.relay_ifname, turn_params.relays_number, turn_params.relay_addrs, turn_params.default_relays, turn_params.verbose, turn_params.max_bps);
+	ioa_engine_handle e = create_ioa_engine(sm, eb, turn_params.listener.tp, turn_params.relay_ifname, turn_params.relays_number, turn_params.relay_addrs,
+			turn_params.default_relays, turn_params.verbose, turn_params.max_bps);
 	set_ssl_ctx(e, turn_params.tls_ctx_ssl23, turn_params.tls_ctx_v1_0,
 #if defined(SSL_TXT_TLSV1_1)
 					turn_params.tls_ctx_v1_1,
@@ -693,7 +694,10 @@ static void setup_listener(void)
 
 	TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"IO method (main listener thread): %s\n",event_base_get_method(turn_params.listener.event_base));
 
-	turn_params.listener.ioa_eng = create_ioa_engine(sm, turn_params.listener.event_base, turn_params.listener.tp, turn_params.relay_ifname, turn_params.relays_number, turn_params.relay_addrs, turn_params.default_relays, turn_params.verbose, turn_params.max_bps);
+	turn_params.listener.ioa_eng = create_ioa_engine(sm, turn_params.listener.event_base, turn_params.listener.tp,
+			turn_params.relay_ifname, turn_params.relays_number, turn_params.relay_addrs,
+			turn_params.default_relays, turn_params.verbose,
+			turn_params.max_bps);
 
 	if(!turn_params.listener.ioa_eng)
 		exit(-1);
@@ -1260,7 +1264,9 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 	} else {
 		rs->event_base = turn_event_base_new();
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"IO method (general relay thread): %s\n",event_base_get_method(rs->event_base));
-		rs->ioa_eng = create_ioa_engine(rs->sm, rs->event_base, turn_params.listener.tp, turn_params.relay_ifname, turn_params.relays_number, turn_params.relay_addrs, turn_params.default_relays, turn_params.verbose, turn_params.max_bps);
+		rs->ioa_eng = create_ioa_engine(rs->sm, rs->event_base, turn_params.listener.tp, turn_params.relay_ifname,
+				turn_params.relays_number, turn_params.relay_addrs, turn_params.default_relays, turn_params.verbose,
+				turn_params.max_bps);
 		set_ssl_ctx(rs->ioa_eng, turn_params.tls_ctx_ssl23, turn_params.tls_ctx_v1_0,
 #if defined(SSL_TXT_TLSV1_1)
 						turn_params.tls_ctx_v1_1,
@@ -1289,18 +1295,18 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 	init_turn_server(&(rs->server),
 			 rs->id, turn_params.verbose,
 			 rs->ioa_eng, 0,
-			 turn_params.fingerprint, DONT_FRAGMENT_SUPPORTED,
-			 turn_params.users_params.users.ct,
-			 (u08bits*)turn_params.users_params.global_realm,
+			 turn_params.default_realm_params.fingerprint, DONT_FRAGMENT_SUPPORTED,
+			 turn_params.default_realm_params.users_params.users.ct,
+			 (u08bits*)turn_params.default_realm_params.name,
 			 start_user_check,
 			 check_new_allocation_quota,
 			 release_allocation_quota,
 			 turn_params.external_ip,
 			 &turn_params.no_tcp_relay,
 			 &turn_params.no_udp_relay,
-			 &turn_params.stale_nonce,
-			 &turn_params.stun_only,
-			 &turn_params.no_stun,
+			 &turn_params.default_realm_params.stale_nonce,
+			 &turn_params.default_realm_params.stun_only,
+			 &turn_params.default_realm_params.no_stun,
 			 &turn_params.alternate_servers_list,
 			 &turn_params.tls_alternate_servers_list,
 			 &turn_params.aux_servers_list,
@@ -1308,7 +1314,8 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 			 &turn_params.no_multicast_peers, &turn_params.no_loopback_peers,
 			 &turn_params.ip_whitelist, &turn_params.ip_blacklist,
 			 send_socket_to_relay,
-			 &turn_params.secure_stun, turn_params.shatype, &turn_params.mobility, turn_params.server_relay,
+			 &turn_params.default_realm_params.secure_stun, turn_params.default_realm_params.shatype, &turn_params.default_realm_params.mobility,
+			 turn_params.default_realm_params.server_relay,
 			 send_turn_session_info);
 	
 	if(to_set_rfc5780) {

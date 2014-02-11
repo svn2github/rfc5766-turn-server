@@ -126,8 +126,6 @@ typedef struct _users_params_t {
 
   turn_user_db users;
 
-  s08bits global_realm[STUN_MAX_REALM_SIZE+1];
-
   int use_auth_secret_with_timestamp;
   char rest_api_separator;
   secrets_list_t static_auth_secrets;
