@@ -618,10 +618,10 @@ static int get_auth_secrets(secrets_list_t *sl)
 
 	clean_secrets_list(sl);
 
-	if(get_secrets_list_size(&turn_params.default_realm_params.users_db.static_auth_secrets)) {
+	if(get_secrets_list_size(&turn_params.default_realm_params.users_db.top_db.static_auth_secrets)) {
 		size_t i = 0;
-		for(i=0;i<get_secrets_list_size(&turn_params.default_realm_params.users_db.static_auth_secrets);++i) {
-			add_to_secrets_list(sl,get_secrets_list_elem(&turn_params.default_realm_params.users_db.static_auth_secrets,i));
+		for(i=0;i<get_secrets_list_size(&turn_params.default_realm_params.users_db.top_db.static_auth_secrets);++i) {
+			add_to_secrets_list(sl,get_secrets_list_elem(&turn_params.default_realm_params.users_db.top_db.static_auth_secrets,i));
 		}
 		ret=0;
 	}
@@ -910,17 +910,17 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 	}
 
 	ur_string_map_value_type ukey = NULL;
-	ur_string_map_lock(turn_params.default_realm_params.users_db.static_accounts);
-	if(ur_string_map_get(turn_params.default_realm_params.users_db.static_accounts, (ur_string_map_key_type)usname, &ukey)) {
+	ur_string_map_lock(turn_params.default_realm_params.users_db.top_db.static_accounts);
+	if(ur_string_map_get(turn_params.default_realm_params.users_db.top_db.static_accounts, (ur_string_map_key_type)usname, &ukey)) {
 		ret = 0;
 	} else {
-		ur_string_map_lock(turn_params.default_realm_params.users_db.dynamic_accounts);
-		if(ur_string_map_get(turn_params.default_realm_params.users_db.dynamic_accounts, (ur_string_map_key_type)usname, &ukey)) {
+		ur_string_map_lock(turn_params.default_realm_params.users_db.top_db.dynamic_accounts);
+		if(ur_string_map_get(turn_params.default_realm_params.users_db.top_db.dynamic_accounts, (ur_string_map_key_type)usname, &ukey)) {
 			ret = 0;
 		}
-		ur_string_map_unlock(turn_params.default_realm_params.users_db.dynamic_accounts);
+		ur_string_map_unlock(turn_params.default_realm_params.users_db.top_db.dynamic_accounts);
 	}
-	ur_string_map_unlock(turn_params.default_realm_params.users_db.static_accounts);
+	ur_string_map_unlock(turn_params.default_realm_params.users_db.top_db.static_accounts);
 
 	if(ret==0) {
 		ns_bcopy(ukey,key,sizeof(hmackey_t));
@@ -1247,9 +1247,9 @@ void read_userdb_file(int to_print)
 
 		char sbuf[LONG_STRING_SIZE];
 
-		ur_string_map_lock(turn_params.default_realm_params.users_db.dynamic_accounts);
+		ur_string_map_lock(turn_params.default_realm_params.users_db.top_db.dynamic_accounts);
 
-		ur_string_map_clean(turn_params.default_realm_params.users_db.dynamic_accounts);
+		ur_string_map_clean(turn_params.default_realm_params.users_db.top_db.dynamic_accounts);
 
 		for (;;) {
 			char *s = fgets(sbuf, sizeof(sbuf) - 1, f);
@@ -1275,7 +1275,7 @@ void read_userdb_file(int to_print)
 			}
 		}
 
-		ur_string_map_unlock(turn_params.default_realm_params.users_db.dynamic_accounts);
+		ur_string_map_unlock(turn_params.default_realm_params.users_db.top_db.dynamic_accounts);
 
 		fclose(f);
 
@@ -1316,15 +1316,15 @@ int add_user_account(char *user, int dynamic)
 				stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)turn_params.default_realm_params.name, (u08bits*)s, *key);
 			}
 			if(dynamic) {
-				ur_string_map_lock(turn_params.default_realm_params.users_db.dynamic_accounts);
-				ur_string_map_put(turn_params.default_realm_params.users_db.dynamic_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
-				ur_string_map_unlock(turn_params.default_realm_params.users_db.dynamic_accounts);
+				ur_string_map_lock(turn_params.default_realm_params.users_db.top_db.dynamic_accounts);
+				ur_string_map_put(turn_params.default_realm_params.users_db.top_db.dynamic_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
+				ur_string_map_unlock(turn_params.default_realm_params.users_db.top_db.dynamic_accounts);
 			} else {
-				ur_string_map_lock(turn_params.default_realm_params.users_db.static_accounts);
-				ur_string_map_put(turn_params.default_realm_params.users_db.static_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
-				ur_string_map_unlock(turn_params.default_realm_params.users_db.static_accounts);
+				ur_string_map_lock(turn_params.default_realm_params.users_db.top_db.static_accounts);
+				ur_string_map_put(turn_params.default_realm_params.users_db.top_db.static_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
+				ur_string_map_unlock(turn_params.default_realm_params.users_db.top_db.static_accounts);
 			}
-			turn_params.default_realm_params.users_db.users_number++;
+			turn_params.default_realm_params.users_db.top_db.users_number++;
 			free(usname);
 			return 0;
 		}

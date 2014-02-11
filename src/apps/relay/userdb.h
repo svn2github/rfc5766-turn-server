@@ -110,6 +110,13 @@ typedef struct _users_params_t
 
 } users_params_t;
 
+typedef struct _top_users_db_t {
+	size_t users_number;
+	ur_string_map *static_accounts;
+	ur_string_map *dynamic_accounts;
+	secrets_list_t static_auth_secrets;
+} top_users_db_t;
+
 typedef struct _users_db_t
 {
 	int use_lt_credentials;
@@ -118,19 +125,15 @@ typedef struct _users_db_t
 	int use_auth_secret_with_timestamp;
 	vint total_quota;
 	vint user_quota;
-
 	char rest_api_separator;
-
-	secrets_list_t static_auth_secrets;
 
 	TURN_USERDB_TYPE userdb_type;
 	char userdb[TURN_LONG_STRING_SIZE];
 
-	size_t users_number;
 	vint total_current_allocs;
-	ur_string_map *static_accounts;
-	ur_string_map *dynamic_accounts;
 	ur_string_map *alloc_counters;
+
+	top_users_db_t top_db;
 
 } users_db_t;
 
