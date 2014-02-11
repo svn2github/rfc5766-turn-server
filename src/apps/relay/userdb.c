@@ -155,7 +155,7 @@ static int convert_string_key_to_binary(char* keysource, hmackey_t key) {
 static int is_pqsql_userdb(void)
 {
 #if !defined(TURN_NO_PQ)
-	return (turn_params.default_realm_params.users_params.userdb_type == TURN_USERDB_TYPE_PQ);
+	return (turn_params.default_realm_params.users_db.userdb_type == TURN_USERDB_TYPE_PQ);
 #else
 	return 0;
 #endif
@@ -164,7 +164,7 @@ static int is_pqsql_userdb(void)
 static int is_mysql_userdb(void)
 {
 #if !defined(TURN_NO_MYSQL)
-	return (turn_params.default_realm_params.users_params.userdb_type == TURN_USERDB_TYPE_MYSQL);
+	return (turn_params.default_realm_params.users_db.userdb_type == TURN_USERDB_TYPE_MYSQL);
 #else
 	return 0;
 #endif
@@ -173,7 +173,7 @@ static int is_mysql_userdb(void)
 static int is_redis_userdb(void)
 {
 #if !defined(TURN_NO_HIREDIS)
-	return (turn_params.default_realm_params.users_params.userdb_type == TURN_USERDB_TYPE_REDIS);
+	return (turn_params.default_realm_params.users_db.userdb_type == TURN_USERDB_TYPE_REDIS);
 #else
 	return 0;
 #endif
@@ -192,29 +192,29 @@ static PGconn *get_pqdb_connection(void)
 	}
 	if(!pqdbconnection && is_pqsql_userdb()) {
 		char *errmsg=NULL;
-		PQconninfoOption *co = PQconninfoParse(turn_params.default_realm_params.users_params.userdb, &errmsg);
+		PQconninfoOption *co = PQconninfoParse(turn_params.default_realm_params.users_db.userdb, &errmsg);
 		if(!co) {
 			if(errmsg) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection <%s>, connection string format error: %s\n",turn_params.default_realm_params.users_params.userdb,errmsg);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection <%s>, connection string format error: %s\n",turn_params.default_realm_params.users_db.userdb,errmsg);
 				turn_free(errmsg,strlen(errmsg)+1);
 			} else {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, unknown connection string format error\n",turn_params.default_realm_params.users_params.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, unknown connection string format error\n",turn_params.default_realm_params.users_db.userdb);
 			}
 		} else {
 			PQconninfoFree(co);
 			if(errmsg)
 				turn_free(errmsg,strlen(errmsg)+1);
-			pqdbconnection = PQconnectdb(turn_params.default_realm_params.users_params.userdb);
+			pqdbconnection = PQconnectdb(turn_params.default_realm_params.users_db.userdb);
 			if(!pqdbconnection) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.default_realm_params.users_params.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.default_realm_params.users_db.userdb);
 			} else {
 				ConnStatusType status = PQstatus(pqdbconnection);
 				if(status != CONNECTION_OK) {
 					PQfinish(pqdbconnection);
 					pqdbconnection = NULL;
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.default_realm_params.users_params.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.default_realm_params.users_db.userdb);
 				} else if(!donot_print_connection_success){
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "PostgreSQL DB connection success: %s\n",turn_params.default_realm_params.users_params.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "PostgreSQL DB connection success: %s\n",turn_params.default_realm_params.users_db.userdb);
 				}
 			}
 		}
@@ -354,20 +354,20 @@ static MYSQL *get_mydb_connection(void)
 
 	if(!mydbconnection && is_mysql_userdb()) {
 		char *errmsg=NULL;
-		Myconninfo *co=MyconninfoParse(turn_params.default_realm_params.users_params.userdb, &errmsg);
+		Myconninfo *co=MyconninfoParse(turn_params.default_realm_params.users_db.userdb, &errmsg);
 		if(!co) {
 			if(errmsg) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.default_realm_params.users_params.userdb,errmsg);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.default_realm_params.users_db.userdb,errmsg);
 				turn_free(errmsg,strlen(errmsg)+1);
 			} else {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error\n",turn_params.default_realm_params.users_params.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error\n",turn_params.default_realm_params.users_db.userdb);
 			}
 		} else if(errmsg) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.default_realm_params.users_params.userdb,errmsg);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.default_realm_params.users_db.userdb,errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
 			MyconninfoFree(co);
 		} else if(!(co->dbname)) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "MySQL Database name is not provided: <%s>\n",turn_params.default_realm_params.users_params.userdb);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "MySQL Database name is not provided: <%s>\n",turn_params.default_realm_params.users_db.userdb);
 			MyconninfoFree(co);
 		} else {
 			mydbconnection = mysql_init(NULL);
@@ -378,7 +378,7 @@ static MYSQL *get_mydb_connection(void)
 					mysql_options(mydbconnection,MYSQL_OPT_CONNECT_TIMEOUT,&(co->connect_timeout));
 				MYSQL *conn = mysql_real_connect(mydbconnection, co->host, co->user, co->password, co->dbname, co->port, NULL, CLIENT_IGNORE_SIGPIPE);
 				if(!conn) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection: <%s>, runtime error\n",turn_params.default_realm_params.users_params.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection: <%s>, runtime error\n",turn_params.default_realm_params.users_db.userdb);
 					mysql_close(mydbconnection);
 					mydbconnection=NULL;
 				} else if(mysql_select_db(mydbconnection, co->dbname)) {
@@ -386,7 +386,7 @@ static MYSQL *get_mydb_connection(void)
 					mysql_close(mydbconnection);
 					mydbconnection=NULL;
 				} else if(!donot_print_connection_success) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "MySQL DB connection success: %s\n",turn_params.default_realm_params.users_params.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "MySQL DB connection success: %s\n",turn_params.default_realm_params.users_db.userdb);
 				}
 			}
 			MyconninfoFree(co);
@@ -526,13 +526,13 @@ redis_context_handle get_redis_async_connection(struct event_base *base, char* c
 	Ryconninfo *co = RyconninfoParse(connection_string, &errmsg);
 	if (!co) {
 		if (errmsg) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_realm_params.users_params.userdb, errmsg);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_realm_params.users_db.userdb, errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
 		} else {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.default_realm_params.users_params.userdb);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.default_realm_params.users_db.userdb);
 		}
 	} else if (errmsg) {
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_realm_params.users_params.userdb, errmsg);
+		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_realm_params.users_db.userdb, errmsg);
 		turn_free(errmsg,strlen(errmsg)+1);
 		RyconninfoFree(co);
 	} else {
@@ -559,16 +559,16 @@ static redisContext *get_redis_connection(void)
 	if (!redisconnection && is_redis_userdb()) {
 
 		char *errmsg = NULL;
-		Ryconninfo *co = RyconninfoParse(turn_params.default_realm_params.users_params.userdb, &errmsg);
+		Ryconninfo *co = RyconninfoParse(turn_params.default_realm_params.users_db.userdb, &errmsg);
 		if (!co) {
 			if (errmsg) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_realm_params.users_params.userdb, errmsg);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_realm_params.users_db.userdb, errmsg);
 				turn_free(errmsg,strlen(errmsg)+1);
 			} else {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.default_realm_params.users_params.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.default_realm_params.users_db.userdb);
 			}
 		} else if (errmsg) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_realm_params.users_params.userdb, errmsg);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_realm_params.users_db.userdb, errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
 			RyconninfoFree(co);
 		} else {
@@ -601,7 +601,7 @@ static redisContext *get_redis_connection(void)
 					turnFreeRedisReply(redisCommand(redisconnection, "select %s", co->dbname));
 				}
 				if (!donot_print_connection_success) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB sync connection success: %s\n", turn_params.default_realm_params.users_params.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB sync connection success: %s\n", turn_params.default_realm_params.users_db.userdb);
 				}
 			}
 			RyconninfoFree(co);
@@ -618,10 +618,10 @@ static int get_auth_secrets(secrets_list_t *sl)
 
 	clean_secrets_list(sl);
 
-	if(get_secrets_list_size(&turn_params.default_realm_params.users_params.static_auth_secrets)) {
+	if(get_secrets_list_size(&turn_params.default_realm_params.users_db.static_auth_secrets)) {
 		size_t i = 0;
-		for(i=0;i<get_secrets_list_size(&turn_params.default_realm_params.users_params.static_auth_secrets);++i) {
-			add_to_secrets_list(sl,get_secrets_list_elem(&turn_params.default_realm_params.users_params.static_auth_secrets,i));
+		for(i=0;i<get_secrets_list_size(&turn_params.default_realm_params.users_db.static_auth_secrets);++i) {
+			add_to_secrets_list(sl,get_secrets_list_elem(&turn_params.default_realm_params.users_db.static_auth_secrets,i));
 		}
 		ret=0;
 	}
@@ -750,7 +750,7 @@ static turn_time_t get_rest_api_timestamp(char *usname)
 	turn_time_t ts = 0;
 	int ts_set = 0;
 
-	char *col = strchr(usname,turn_params.default_realm_params.users_params.rest_api_separator);
+	char *col = strchr(usname,turn_params.default_realm_params.users_db.rest_api_separator);
 
 	if(col) {
 		if(col == usname) {
@@ -772,7 +772,7 @@ static turn_time_t get_rest_api_timestamp(char *usname)
 				*col=0;
 				ts = (turn_time_t)atol(usname);
 				ts_set = 1;
-				*col=turn_params.default_realm_params.users_params.rest_api_separator;
+				*col=turn_params.default_realm_params.users_db.rest_api_separator;
 			}
 		}
 	}
@@ -786,8 +786,8 @@ static turn_time_t get_rest_api_timestamp(char *usname)
 
 static char *get_real_username(char *usname)
 {
-	if(turn_params.default_realm_params.users_params.use_auth_secret_with_timestamp) {
-		char *col=strchr(usname,turn_params.default_realm_params.users_params.rest_api_separator);
+	if(turn_params.default_realm_params.users_db.use_auth_secret_with_timestamp) {
+		char *col=strchr(usname,turn_params.default_realm_params.users_db.rest_api_separator);
 		if(col) {
 			if(col == usname) {
 				usname +=1;
@@ -806,7 +806,7 @@ static char *get_real_username(char *usname)
 				} else {
 					*col=0;
 					usname = strdup(usname);
-					*col=turn_params.default_realm_params.users_params.rest_api_separator;
+					*col=turn_params.default_realm_params.users_db.rest_api_separator;
 					return usname;
 				}
 			}
@@ -823,7 +823,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 {
 	int ret = -1;
 
-	if(turn_params.default_realm_params.users_params.use_auth_secret_with_timestamp) {
+	if(turn_params.default_realm_params.users_db.use_auth_secret_with_timestamp) {
 
 		turn_time_t ctime = (turn_time_t) time(NULL);
 		turn_time_t ts = 0;
@@ -910,17 +910,17 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 	}
 
 	ur_string_map_value_type ukey = NULL;
-	ur_string_map_lock(turn_params.default_realm_params.users_params.users.static_accounts);
-	if(ur_string_map_get(turn_params.default_realm_params.users_params.users.static_accounts, (ur_string_map_key_type)usname, &ukey)) {
+	ur_string_map_lock(turn_params.default_realm_params.users_db.static_accounts);
+	if(ur_string_map_get(turn_params.default_realm_params.users_db.static_accounts, (ur_string_map_key_type)usname, &ukey)) {
 		ret = 0;
 	} else {
-		ur_string_map_lock(turn_params.default_realm_params.users_params.users.dynamic_accounts);
-		if(ur_string_map_get(turn_params.default_realm_params.users_params.users.dynamic_accounts, (ur_string_map_key_type)usname, &ukey)) {
+		ur_string_map_lock(turn_params.default_realm_params.users_db.dynamic_accounts);
+		if(ur_string_map_get(turn_params.default_realm_params.users_db.dynamic_accounts, (ur_string_map_key_type)usname, &ukey)) {
 			ret = 0;
 		}
-		ur_string_map_unlock(turn_params.default_realm_params.users_params.users.dynamic_accounts);
+		ur_string_map_unlock(turn_params.default_realm_params.users_db.dynamic_accounts);
 	}
-	ur_string_map_unlock(turn_params.default_realm_params.users_params.users.static_accounts);
+	ur_string_map_unlock(turn_params.default_realm_params.users_db.static_accounts);
 
 	if(ret==0) {
 		ns_bcopy(ukey,key,sizeof(hmackey_t));
@@ -1166,27 +1166,27 @@ int check_new_allocation_quota(u08bits *user)
 	int ret = 0;
 	if (user) {
 		u08bits *username = (u08bits*)get_real_username((char*)user);
-		ur_string_map_lock(turn_params.default_realm_params.users_params.users.alloc_counters);
-		if (turn_params.default_realm_params.users_params.users.total_quota && (turn_params.default_realm_params.users_params.users.total_current_allocs >= turn_params.default_realm_params.users_params.users.total_quota)) {
+		ur_string_map_lock(turn_params.default_realm_params.users_db.alloc_counters);
+		if (turn_params.default_realm_params.users_db.total_quota && (turn_params.default_realm_params.users_db.total_current_allocs >= turn_params.default_realm_params.users_db.total_quota)) {
 			ret = -1;
 		} else {
 			ur_string_map_value_type value = 0;
-			if (!ur_string_map_get(turn_params.default_realm_params.users_params.users.alloc_counters, (ur_string_map_key_type) username, &value)) {
+			if (!ur_string_map_get(turn_params.default_realm_params.users_db.alloc_counters, (ur_string_map_key_type) username, &value)) {
 				value = (ur_string_map_value_type) 1;
-				ur_string_map_put(turn_params.default_realm_params.users_params.users.alloc_counters, (ur_string_map_key_type) username, value);
-				++(turn_params.default_realm_params.users_params.users.total_current_allocs);
+				ur_string_map_put(turn_params.default_realm_params.users_db.alloc_counters, (ur_string_map_key_type) username, value);
+				++(turn_params.default_realm_params.users_db.total_current_allocs);
 			} else {
-				if ((turn_params.default_realm_params.users_params.users.user_quota) && ((size_t) value >= (size_t)(turn_params.default_realm_params.users_params.users.user_quota))) {
+				if ((turn_params.default_realm_params.users_db.user_quota) && ((size_t) value >= (size_t)(turn_params.default_realm_params.users_db.user_quota))) {
 					ret = -1;
 				} else {
 					value = (ur_string_map_value_type)(((size_t)value) + 1);
-					ur_string_map_put(turn_params.default_realm_params.users_params.users.alloc_counters, (ur_string_map_key_type) username, value);
-					++(turn_params.default_realm_params.users_params.users.total_current_allocs);
+					ur_string_map_put(turn_params.default_realm_params.users_db.alloc_counters, (ur_string_map_key_type) username, value);
+					++(turn_params.default_realm_params.users_db.total_current_allocs);
 				}
 			}
 		}
 		turn_free(username,strlen(username)+1);
-		ur_string_map_unlock(turn_params.default_realm_params.users_params.users.alloc_counters);
+		ur_string_map_unlock(turn_params.default_realm_params.users_db.alloc_counters);
 	}
 	return ret;
 }
@@ -1195,16 +1195,16 @@ void release_allocation_quota(u08bits *user)
 {
 	if (user) {
 		u08bits *username = (u08bits*)get_real_username((char*)user);
-		ur_string_map_lock(turn_params.default_realm_params.users_params.users.alloc_counters);
+		ur_string_map_lock(turn_params.default_realm_params.users_db.alloc_counters);
 		ur_string_map_value_type value = 0;
-		ur_string_map_get(turn_params.default_realm_params.users_params.users.alloc_counters, (ur_string_map_key_type) username, &value);
+		ur_string_map_get(turn_params.default_realm_params.users_db.alloc_counters, (ur_string_map_key_type) username, &value);
 		if (value) {
 			value = (ur_string_map_value_type)(((size_t)value) - 1);
-			ur_string_map_put(turn_params.default_realm_params.users_params.users.alloc_counters, (ur_string_map_key_type) username, value);
+			ur_string_map_put(turn_params.default_realm_params.users_db.alloc_counters, (ur_string_map_key_type) username, value);
 		}
-		if (turn_params.default_realm_params.users_params.users.total_current_allocs)
-			--(turn_params.default_realm_params.users_params.users.total_current_allocs);
-		ur_string_map_unlock(turn_params.default_realm_params.users_params.users.alloc_counters);
+		if (turn_params.default_realm_params.users_db.total_current_allocs)
+			--(turn_params.default_realm_params.users_db.total_current_allocs);
+		ur_string_map_unlock(turn_params.default_realm_params.users_db.alloc_counters);
 		turn_free(username, strlen(username)+1);
 	}
 }
@@ -1217,9 +1217,9 @@ void read_userdb_file(int to_print)
 	static int first_read = 1;
 	static turn_time_t mtime = 0;
 
-	if(turn_params.default_realm_params.users_params.userdb_type != TURN_USERDB_TYPE_FILE)
+	if(turn_params.default_realm_params.users_db.userdb_type != TURN_USERDB_TYPE_FILE)
 		return;
-	if(turn_params.default_realm_params.users_params.use_auth_secret_with_timestamp)
+	if(turn_params.default_realm_params.users_db.use_auth_secret_with_timestamp)
 		return;
 
 	FILE *f = NULL;
@@ -1238,7 +1238,7 @@ void read_userdb_file(int to_print)
 	}
 
 	if (!full_path_to_userdb_file)
-		full_path_to_userdb_file = find_config_file(turn_params.default_realm_params.users_params.userdb, first_read);
+		full_path_to_userdb_file = find_config_file(turn_params.default_realm_params.users_db.userdb, first_read);
 
 	if (full_path_to_userdb_file)
 		f = fopen(full_path_to_userdb_file, "r");
@@ -1247,9 +1247,9 @@ void read_userdb_file(int to_print)
 
 		char sbuf[LONG_STRING_SIZE];
 
-		ur_string_map_lock(turn_params.default_realm_params.users_params.users.dynamic_accounts);
+		ur_string_map_lock(turn_params.default_realm_params.users_db.dynamic_accounts);
 
-		ur_string_map_clean(turn_params.default_realm_params.users_params.users.dynamic_accounts);
+		ur_string_map_clean(turn_params.default_realm_params.users_db.dynamic_accounts);
 
 		for (;;) {
 			char *s = fgets(sbuf, sizeof(sbuf) - 1, f);
@@ -1275,12 +1275,12 @@ void read_userdb_file(int to_print)
 			}
 		}
 
-		ur_string_map_unlock(turn_params.default_realm_params.users_params.users.dynamic_accounts);
+		ur_string_map_unlock(turn_params.default_realm_params.users_db.dynamic_accounts);
 
 		fclose(f);
 
 	} else if (first_read) {
-	  TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Cannot find userdb file: %s: going without flat file user database.\n", turn_params.default_realm_params.users_params.userdb);
+	  TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Cannot find userdb file: %s: going without flat file user database.\n", turn_params.default_realm_params.users_db.userdb);
 	} 
 
 	first_read = 0;
@@ -1288,7 +1288,7 @@ void read_userdb_file(int to_print)
 
 int add_user_account(char *user, int dynamic)
 {
-	if(user && !turn_params.default_realm_params.users_params.use_auth_secret_with_timestamp) {
+	if(user && !turn_params.default_realm_params.users_db.use_auth_secret_with_timestamp) {
 		char *s = strstr(user, ":");
 		if(!s || (s==user) || (strlen(s)<2)) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Wrong user account: %s\n",user);
@@ -1316,15 +1316,15 @@ int add_user_account(char *user, int dynamic)
 				stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)turn_params.default_realm_params.name, (u08bits*)s, *key);
 			}
 			if(dynamic) {
-				ur_string_map_lock(turn_params.default_realm_params.users_params.users.dynamic_accounts);
-				ur_string_map_put(turn_params.default_realm_params.users_params.users.dynamic_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
-				ur_string_map_unlock(turn_params.default_realm_params.users_params.users.dynamic_accounts);
+				ur_string_map_lock(turn_params.default_realm_params.users_db.dynamic_accounts);
+				ur_string_map_put(turn_params.default_realm_params.users_db.dynamic_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
+				ur_string_map_unlock(turn_params.default_realm_params.users_db.dynamic_accounts);
 			} else {
-				ur_string_map_lock(turn_params.default_realm_params.users_params.users.static_accounts);
-				ur_string_map_put(turn_params.default_realm_params.users_params.users.static_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
-				ur_string_map_unlock(turn_params.default_realm_params.users_params.users.static_accounts);
+				ur_string_map_lock(turn_params.default_realm_params.users_db.static_accounts);
+				ur_string_map_put(turn_params.default_realm_params.users_db.static_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
+				ur_string_map_unlock(turn_params.default_realm_params.users_db.static_accounts);
 			}
-			turn_params.default_realm_params.users_params.users_number++;
+			turn_params.default_realm_params.users_db.users_number++;
 			free(usname);
 			return 0;
 		}
@@ -1907,7 +1907,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 #endif
 	} else if(!is_st) {
 
-		char *full_path_to_userdb_file = find_config_file(turn_params.default_realm_params.users_params.userdb, 1);
+		char *full_path_to_userdb_file = find_config_file(turn_params.default_realm_params.users_db.userdb, 1);
 		FILE *f = full_path_to_userdb_file ? fopen(full_path_to_userdb_file,"r") : NULL;
 		int found = 0;
 		char us[LONG_STRING_SIZE];
@@ -1920,7 +1920,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		us[sizeof(us)-1]=0;
 
 		if (!f) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "File %s not found, will be created.\n",turn_params.default_realm_params.users_params.userdb);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "File %s not found, will be created.\n",turn_params.default_realm_params.users_db.userdb);
 		} else {
 
 			char sarg[LONG_STRING_SIZE];
@@ -1984,7 +1984,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		}
 
 		if(!full_path_to_userdb_file)
-			full_path_to_userdb_file=strdup(turn_params.default_realm_params.users_params.userdb);
+			full_path_to_userdb_file=strdup(turn_params.default_realm_params.users_db.userdb);
 
 		size_t dirsz = strlen(full_path_to_userdb_file)+21;
 		char *dir = (char*)turn_malloc(dirsz+1);

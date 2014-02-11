@@ -230,7 +230,7 @@ static void auth_server_receive_message(struct bufferevent *bev, void *ptr)
       continue;
     }
     
-    if(turn_params.default_realm_params.users_params.use_st_credentials) {
+    if(turn_params.default_realm_params.users_db.use_st_credentials) {
       st_password_t pwd;
       if(get_user_pwd(am.username,pwd)<0) {
 	am.success = 0;
@@ -1296,7 +1296,7 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 			 rs->id, turn_params.verbose,
 			 rs->ioa_eng, 0,
 			 turn_params.default_realm_params.fingerprint, DONT_FRAGMENT_SUPPORTED,
-			 turn_params.default_realm_params.users_params.users.ct,
+			 turn_params.default_realm_params.users_params.ct,
 			 (u08bits*)turn_params.default_realm_params.name,
 			 start_user_check,
 			 check_new_allocation_quota,
@@ -1314,7 +1314,7 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 			 &turn_params.no_multicast_peers, &turn_params.no_loopback_peers,
 			 &turn_params.ip_whitelist, &turn_params.ip_blacklist,
 			 send_socket_to_relay,
-			 &turn_params.default_realm_params.secure_stun, turn_params.default_realm_params.shatype, &turn_params.default_realm_params.mobility,
+			 &turn_params.default_realm_params.secure_stun, turn_params.default_realm_params.users_params.shatype, &turn_params.default_realm_params.mobility,
 			 turn_params.default_realm_params.server_relay,
 			 send_turn_session_info);
 	

@@ -63,17 +63,6 @@ struct auth_message {
 	int success;
 };
 
-struct _turn_user_db {
-	turn_credential_type ct;
-	vint total_quota;
-	vint user_quota;
-	vint total_current_allocs;
-	ur_string_map *static_accounts;
-	ur_string_map *dynamic_accounts;
-	ur_string_map *alloc_counters;
-};
-typedef struct _turn_user_db turn_user_db;
-
 enum _TURN_USERDB_TYPE {
 	TURN_USERDB_TYPE_FILE=0
 #if !defined(TURN_NO_PQ)
@@ -114,22 +103,36 @@ typedef struct _secrets_list secrets_list_t;
 
 #define TURN_LONG_STRING_SIZE (1025)
 
-typedef struct _users_params_t {
+typedef struct _users_params_t
+{
+	turn_credential_type ct;
+	SHATYPE shatype;
 
-  TURN_USERDB_TYPE userdb_type;
-  char userdb[TURN_LONG_STRING_SIZE];
-
-  size_t users_number;
-  int use_lt_credentials;
-  int use_st_credentials;
-  int anon_credentials;
-
-  turn_user_db users;
-
-  int use_auth_secret_with_timestamp;
-  char rest_api_separator;
-  secrets_list_t static_auth_secrets;
 } users_params_t;
+
+typedef struct _users_db_t
+{
+	int use_lt_credentials;
+	int use_st_credentials;
+	int anon_credentials;
+	int use_auth_secret_with_timestamp;
+	vint total_quota;
+	vint user_quota;
+
+	char rest_api_separator;
+
+	secrets_list_t static_auth_secrets;
+
+	TURN_USERDB_TYPE userdb_type;
+	char userdb[TURN_LONG_STRING_SIZE];
+
+	size_t users_number;
+	vint total_current_allocs;
+	ur_string_map *static_accounts;
+	ur_string_map *dynamic_accounts;
+	ur_string_map *alloc_counters;
+
+} users_db_t;
 
 /////////////////////////////////////////////
 

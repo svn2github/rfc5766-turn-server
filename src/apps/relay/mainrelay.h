@@ -183,7 +183,6 @@ typedef struct _realm_params {
 
 	s08bits name[STUN_MAX_REALM_SIZE + 1];
 
-	SHATYPE shatype;
 	vint stale_nonce;
 	vint stun_only;
 	vint no_stun;
@@ -195,6 +194,8 @@ typedef struct _realm_params {
 	vint mobility;
 
 	users_params_t users_params;
+
+	users_db_t users_db;
 
 } realm_params;
 
