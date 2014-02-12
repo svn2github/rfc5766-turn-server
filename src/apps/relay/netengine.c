@@ -230,21 +230,21 @@ static void auth_server_receive_message(struct bufferevent *bev, void *ptr)
       continue;
     }
     
-    if(turn_params.default_realm_params.users_db.use_st_credentials) {
+    if(turn_params.default_realm_params.ct == TURN_CREDENTIALS_SHORT_TERM) {
       st_password_t pwd;
       if(get_user_pwd(am.username,pwd)<0) {
-	am.success = 0;
+    	  am.success = 0;
       } else {
-	ns_bcopy(pwd,am.pwd,sizeof(st_password_t));
-	am.success = 1;
+    	  ns_bcopy(pwd,am.pwd,sizeof(st_password_t));
+    	  am.success = 1;
       }
     } else {
       hmackey_t key;
       if(get_user_key(am.username,key,am.in_buffer.nbh)<0) {
-	am.success = 0;
+    	  am.success = 0;
       } else {
-	ns_bcopy(key,am.key,sizeof(hmackey_t));
-	am.success = 1;
+    	  ns_bcopy(key,am.key,sizeof(hmackey_t));
+    	  am.success = 1;
       }
     }
     
@@ -255,21 +255,21 @@ static void auth_server_receive_message(struct bufferevent *bev, void *ptr)
     if(dest>=TURNSERVER_ID_BOUNDARY_BETWEEN_TCP_AND_UDP) {
       dest -= TURNSERVER_ID_BOUNDARY_BETWEEN_TCP_AND_UDP;
       if(dest >= get_real_udp_relay_servers_number()) {
-	TURN_LOG_FUNC(
+    	  TURN_LOG_FUNC(
 		      TURN_LOG_LEVEL_ERROR,
 		      "%s: Too large UDP relay number: %d\n",
 		      __FUNCTION__,(int)dest);
       } else {
-	output = bufferevent_get_output(udp_relay_servers[dest]->auth_out_buf);
+    	  output = bufferevent_get_output(udp_relay_servers[dest]->auth_out_buf);
       }
     } else {
       if(dest >= get_real_general_relay_servers_number()) {
-	TURN_LOG_FUNC(
+    	  TURN_LOG_FUNC(
 		      TURN_LOG_LEVEL_ERROR,
 		      "%s: Too large general relay number: %d\n",
 		      __FUNCTION__,(int)dest);
       } else {
-	output = bufferevent_get_output(general_relay_servers[dest]->auth_out_buf);
+    	  output = bufferevent_get_output(general_relay_servers[dest]->auth_out_buf);
       }
     }
     
@@ -1295,8 +1295,8 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 	init_turn_server(&(rs->server),
 			 rs->id, turn_params.verbose,
 			 rs->ioa_eng, 0,
-			 turn_params.default_realm_params.fingerprint, DONT_FRAGMENT_SUPPORTED,
-			 turn_params.default_realm_params.users_params.ct,
+			 turn_params.fingerprint, DONT_FRAGMENT_SUPPORTED,
+			 turn_params.default_realm_params.ct,
 			 (u08bits*)turn_params.default_realm_params.name,
 			 start_user_check,
 			 check_new_allocation_quota,
@@ -1304,9 +1304,9 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 			 turn_params.external_ip,
 			 &turn_params.no_tcp_relay,
 			 &turn_params.no_udp_relay,
-			 &turn_params.default_realm_params.stale_nonce,
-			 &turn_params.default_realm_params.stun_only,
-			 &turn_params.default_realm_params.no_stun,
+			 &turn_params.stale_nonce,
+			 &turn_params.stun_only,
+			 &turn_params.no_stun,
 			 &turn_params.alternate_servers_list,
 			 &turn_params.tls_alternate_servers_list,
 			 &turn_params.aux_servers_list,
@@ -1314,8 +1314,8 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 			 &turn_params.no_multicast_peers, &turn_params.no_loopback_peers,
 			 &turn_params.ip_whitelist, &turn_params.ip_blacklist,
 			 send_socket_to_relay,
-			 &turn_params.default_realm_params.secure_stun, turn_params.default_realm_params.users_params.shatype, &turn_params.default_realm_params.mobility,
-			 turn_params.default_realm_params.server_relay,
+			 &turn_params.secure_stun, turn_params.shatype, &turn_params.mobility,
+			 turn_params.server_relay,
 			 send_turn_session_info);
 	
 	if(to_set_rfc5780) {

@@ -153,15 +153,15 @@ struct toggleable_command {
 };
 
 struct toggleable_command tcmds[] = {
-				{"stale-nonce",&turn_params.default_realm_params.stale_nonce},
-				{"stun-only",&turn_params.default_realm_params.stun_only},
-				{"no-stun",&turn_params.default_realm_params.no_stun},
-				{"secure-stun",&turn_params.default_realm_params.secure_stun},
+				{"stale-nonce",&turn_params.stale_nonce},
+				{"stun-only",&turn_params.stun_only},
+				{"no-stun",&turn_params.no_stun},
+				{"secure-stun",&turn_params.secure_stun},
 				{"no-udp-relay",&turn_params.no_udp_relay},
 				{"no-tcp-relay",&turn_params.no_tcp_relay},
 				{"no-multicast-peers",&turn_params.no_multicast_peers},
 				{"no-loopback-peers",&turn_params.no_loopback_peers},
-				{"mobility",&turn_params.default_realm_params.mobility},
+				{"mobility",&turn_params.mobility},
 				{NULL,NULL}
 };
 
@@ -362,11 +362,11 @@ static void change_cli_param(struct cli_session* cs, const char* pn)
 					*(ccmds[i].data) = (vint)pnv;
 					cli_print_uint(cs,(unsigned long)(*(ccmds[i].data)),ccmds[i].cmd,2);
 				} else if(strcmp(ccmds[i].cmd,"total-quota")==0) {
-					turn_params.default_realm_params.users_db.total_quota = pnv;
-					cli_print_uint(cs,(unsigned long)(turn_params.default_realm_params.users_db.total_quota),ccmds[i].cmd,2);
+					turn_params.default_realm_params.total_quota = pnv;
+					cli_print_uint(cs,(unsigned long)(turn_params.default_realm_params.total_quota),ccmds[i].cmd,2);
 				} else if(strcmp(ccmds[i].cmd,"user-quota")==0) {
-					turn_params.default_realm_params.users_db.user_quota = pnv;
-					cli_print_uint(cs,(unsigned long)(turn_params.default_realm_params.users_db.user_quota),ccmds[i].cmd,2);
+					turn_params.default_realm_params.user_quota = pnv;
+					cli_print_uint(cs,(unsigned long)(turn_params.default_realm_params.user_quota),ccmds[i].cmd,2);
 				}
 				return;
 			}
@@ -505,9 +505,9 @@ static int print_session(ur_map_key_type key, ur_map_value_type value, void *arg
 				myprintf(cs,"      fingerprints enforced: %s\n",get_flag(tsi->enforce_fingerprints));
 				myprintf(cs,"      mobile: %s\n",get_flag(tsi->is_mobile));
 				myprintf(cs,"      SHA256: %s\n",get_flag(tsi->shatype));
-				if(turn_params.default_realm_params.users_params.shatype == SHATYPE_SHA1)
+				if(turn_params.shatype == SHATYPE_SHA1)
 					myprintf(cs,"      SHA type: SHA1\n");
-				else if(turn_params.default_realm_params.users_params.shatype == SHATYPE_SHA256)
+				else if(turn_params.shatype == SHATYPE_SHA256)
 					myprintf(cs,"      SHA type: SHA256\n");
 				if(tsi->tls_method[0]) {
 					myprintf(cs,"      TLS method: %s\n",tsi->tls_method);
@@ -615,16 +615,16 @@ static void cli_print_configuration(struct cli_session* cs)
 
 		cli_print_flag(cs,turn_params.verbose,"verbose",0);
 		cli_print_flag(cs,turn_params.turn_daemon,"daemon process",0);
-		cli_print_flag(cs,turn_params.default_realm_params.stale_nonce,"stale-nonce",1);
-		cli_print_flag(cs,turn_params.default_realm_params.stun_only,"stun-only",1);
-		cli_print_flag(cs,turn_params.default_realm_params.no_stun,"no-stun",1);
-		cli_print_flag(cs,turn_params.default_realm_params.secure_stun,"secure-stun",1);
+		cli_print_flag(cs,turn_params.stale_nonce,"stale-nonce",1);
+		cli_print_flag(cs,turn_params.stun_only,"stun-only",1);
+		cli_print_flag(cs,turn_params.no_stun,"no-stun",1);
+		cli_print_flag(cs,turn_params.secure_stun,"secure-stun",1);
 		cli_print_flag(cs,turn_params.do_not_use_config_file,"do-not-use-config-file",0);
 		cli_print_flag(cs,turn_params.rfc5780,"RFC5780 support",0);
 		cli_print_uint(cs,(unsigned int)turn_params.net_engine_version,"net engine version",0);
 		cli_print_str(cs,turn_params.net_engine_version_txt[(int)turn_params.net_engine_version],"net engine",0);
-		cli_print_flag(cs,turn_params.default_realm_params.fingerprint,"enforce fingerprints",0);
-		cli_print_flag(cs,turn_params.default_realm_params.mobility,"mobility",1);
+		cli_print_flag(cs,turn_params.fingerprint,"enforce fingerprints",0);
+		cli_print_flag(cs,turn_params.mobility,"mobility",1);
 		cli_print_flag(cs,turn_params.udp_self_balance,"udp-self-balance",0);
 		cli_print_str(cs,turn_params.pidfile,"pidfile",0);
 		cli_print_uint(cs,(unsigned long)getuid(),"process user ID",0);
@@ -662,9 +662,9 @@ static void cli_print_configuration(struct cli_session* cs)
 		cli_print_str(cs,turn_params.cert_file,"Certificate file",0);
 		cli_print_str(cs,turn_params.pkey_file,"Private Key file",0);
 
-		if(turn_params.default_realm_params.users_params.shatype == SHATYPE_SHA1)
+		if(turn_params.shatype == SHATYPE_SHA1)
 			cli_print_str(cs,"SHA1 and SHA256","allowed SHA types",0);
-		else if(turn_params.default_realm_params.users_params.shatype == SHATYPE_SHA256)
+		else if(turn_params.shatype == SHATYPE_SHA256)
 					cli_print_str(cs,"SHA256 only","allowed SHA types",0);
 
 		myprintf(cs,"\n");
@@ -710,7 +710,7 @@ static void cli_print_configuration(struct cli_session* cs)
 		if(turn_params.relay_ifname[0])
 			cli_print_str(cs,turn_params.relay_ifname,"relay-ifname",0);
 
-		cli_print_flag(cs,turn_params.default_realm_params.server_relay,"server-relay",0);
+		cli_print_flag(cs,turn_params.server_relay,"server-relay",0);
 
 		cli_print_flag(cs,turn_params.no_udp_relay,"no-udp-relay",1);
 		cli_print_flag(cs,turn_params.no_tcp_relay,"no-tcp-relay",1);
@@ -726,8 +726,8 @@ static void cli_print_configuration(struct cli_session* cs)
 
 		myprintf(cs,"\n");
 
-		if(turn_params.default_realm_params.users_db.userdb[0]) {
-			switch(turn_params.default_realm_params.users_db.userdb_type) {
+		if(turn_params.users_db.userdb[0]) {
+			switch(turn_params.users_db.userdb_type) {
 			case TURN_USERDB_TYPE_FILE:
 				cli_print_str(cs,"file","DB type",0);
 				break;
@@ -749,7 +749,7 @@ static void cli_print_configuration(struct cli_session* cs)
 			default:
 				cli_print_str(cs,"unknown","DB type",0);
 			};
-			cli_print_str(cs,turn_params.default_realm_params.users_db.userdb,"DB",0);
+			cli_print_str(cs,turn_params.users_db.userdb,"DB",0);
 		} else {
 			cli_print_str(cs,"none","DB type",0);
 			cli_print_str(cs,"none","DB",0);
@@ -762,21 +762,24 @@ static void cli_print_configuration(struct cli_session* cs)
 
 		myprintf(cs,"\n");
 
-		cli_print_flag(cs,turn_params.default_realm_params.users_db.use_lt_credentials,"Long-term authorization mechanism",0);
-		cli_print_flag(cs,turn_params.default_realm_params.users_db.use_st_credentials,"Short-term authorization mechanism",0);
-		cli_print_flag(cs,turn_params.default_realm_params.users_db.anon_credentials,"Anonymous credentials",0);
-		cli_print_flag(cs,turn_params.default_realm_params.users_db.use_auth_secret_with_timestamp,"REST API",0);
-		if(turn_params.default_realm_params.users_db.use_auth_secret_with_timestamp && turn_params.default_realm_params.users_db.rest_api_separator)
-			cli_print_uint(cs,turn_params.default_realm_params.users_db.rest_api_separator,"REST API separator ASCII number",0);
+		if(turn_params.default_realm_params.ct == TURN_CREDENTIALS_LONG_TERM)
+			cli_print_flag(cs,1,"Long-term authorization mechanism",0);
+		else if(turn_params.default_realm_params.ct == TURN_CREDENTIALS_SHORT_TERM)
+			cli_print_flag(cs,1,"Short-term authorization mechanism",0);
+		else
+			cli_print_flag(cs,1,"Anonymous credentials",0);
+		cli_print_flag(cs,turn_params.default_realm_params.use_auth_secret_with_timestamp,"REST API support",0);
+		if(turn_params.default_realm_params.use_auth_secret_with_timestamp && turn_params.rest_api_separator)
+			cli_print_uint(cs,turn_params.rest_api_separator,"REST API separator ASCII number",0);
 
 		if(turn_params.default_realm_params.name[0])
 			cli_print_str(cs,turn_params.default_realm_params.name,"Realm",0);
 
 		myprintf(cs,"\n");
 
-		cli_print_uint(cs,(unsigned long)turn_params.default_realm_params.users_db.total_quota,"total-quota",2);
-		cli_print_uint(cs,(unsigned long)turn_params.default_realm_params.users_db.user_quota,"user-quota",2);
-		cli_print_uint(cs,(unsigned long)turn_params.default_realm_params.users_db.total_current_allocs,"total-current-allocs",0);
+		cli_print_uint(cs,(unsigned long)turn_params.default_realm_params.total_quota,"total-quota",2);
+		cli_print_uint(cs,(unsigned long)turn_params.default_realm_params.user_quota,"user-quota",2);
+		cli_print_uint(cs,(unsigned long)turn_params.users_db.total_current_allocs,"total-current-allocs",0);
 		cli_print_uint(cs,(unsigned long)turn_params.max_bps,"max-bps",0);
 
 		myprintf(cs,"\n");

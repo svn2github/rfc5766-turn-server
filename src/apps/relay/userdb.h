@@ -103,13 +103,6 @@ typedef struct _secrets_list secrets_list_t;
 
 #define TURN_LONG_STRING_SIZE (1025)
 
-typedef struct _users_params_t
-{
-	turn_credential_type ct;
-	SHATYPE shatype;
-
-} users_params_t;
-
 typedef struct _top_users_db_t {
 	size_t users_number;
 	ur_string_map *static_accounts;
@@ -119,14 +112,6 @@ typedef struct _top_users_db_t {
 
 typedef struct _users_db_t
 {
-	int use_lt_credentials;
-	int use_st_credentials;
-	int anon_credentials;
-	int use_auth_secret_with_timestamp;
-	vint total_quota;
-	vint user_quota;
-	char rest_api_separator;
-
 	TURN_USERDB_TYPE userdb_type;
 	char userdb[TURN_LONG_STRING_SIZE];
 

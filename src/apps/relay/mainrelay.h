@@ -182,20 +182,13 @@ struct auth_server {
 typedef struct _realm_params {
 
 	s08bits name[STUN_MAX_REALM_SIZE + 1];
+	int default_realm;
 
-	vint stale_nonce;
-	vint stun_only;
-	vint no_stun;
-	vint secure_stun;
-	int server_relay;
+	turn_credential_type ct;
 
-	int fingerprint;
-
-	vint mobility;
-
-	users_params_t users_params;
-
-	users_db_t users_db;
+	int use_auth_secret_with_timestamp;
+	vint total_quota;
+	vint user_quota;
 
 } realm_params;
 
@@ -313,9 +306,25 @@ typedef struct _turn_params_ {
 
   int stop_turn_server;
 
+////////////// MISC PARAMS ////////////////
+
+  vint stun_only;
+  vint no_stun;
+  vint secure_stun;
+  int server_relay;
+  int fingerprint;
+  SHATYPE shatype;
+  char rest_api_separator;
+  vint stale_nonce;
+  vint mobility;
+
 ////////////// DEFAULT REALM /////////////////////
 
   realm_params default_realm_params;
+
+/////// Users DB ///////////
+
+  users_db_t users_db;
 
 } turn_params_t;
 
