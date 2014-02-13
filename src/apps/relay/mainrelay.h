@@ -182,7 +182,7 @@ struct auth_server {
 typedef struct _realm_params {
 
 	s08bits name[STUN_MAX_REALM_SIZE + 1];
-	int default_realm;
+	int is_default_realm;
 
 	turn_credential_type ct;
 

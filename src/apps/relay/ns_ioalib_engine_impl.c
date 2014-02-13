@@ -338,6 +338,11 @@ static const ioa_addr* ioa_engine_get_relay_addr(ioa_engine_handle e, ioa_socket
 {
 	if(e) {
 
+		int family = AF_INET;
+		if(address_family == STUN_ATTRIBUTE_REQUESTED_ADDRESS_FAMILY_VALUE_IPV6)
+			family = AF_INET6;
+
+
 		if(e->default_relays) {
 
 			//No relay addrs defined - just return the client address if appropriate:
@@ -369,7 +374,10 @@ static const ioa_addr* ioa_engine_get_relay_addr(ioa_engine_handle e, ioa_socket
 
 				if(e->relay_addr_counter >= e->relays_number)
 					e->relay_addr_counter = 0;
-				const ioa_addr *relay_addr = &(e->relay_addrs[e->relay_addr_counter++]);
+				ioa_addr *relay_addr = &(e->relay_addrs[e->relay_addr_counter++]);
+
+				if(addr_any_no_port(relay_addr))
+					get_a_local_relay(family, relay_addr);
 
 				switch (address_family){
 				case STUN_ATTRIBUTE_REQUESTED_ADDRESS_FAMILY_VALUE_DEFAULT:
