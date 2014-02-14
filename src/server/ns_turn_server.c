@@ -3064,7 +3064,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 					if(sarlen>0) {
 						//TODO
 						char origin[513];
-						strncpy(origin,(char*)stun_attr_get_value(sar),(size_t)sarlen);
+						strncpy(origin,(const char*)stun_attr_get_value(sar),(size_t)sarlen);
 						ss->realm = get_default_realm();
 					}
 				}
