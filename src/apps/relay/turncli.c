@@ -362,11 +362,11 @@ static void change_cli_param(struct cli_session* cs, const char* pn)
 					*(ccmds[i].data) = (vint)pnv;
 					cli_print_uint(cs,(unsigned long)(*(ccmds[i].data)),ccmds[i].cmd,2);
 				} else if(strcmp(ccmds[i].cmd,"total-quota")==0) {
-					turn_params.default_realm_params.total_quota = pnv;
-					cli_print_uint(cs,(unsigned long)(turn_params.default_realm_params.total_quota),ccmds[i].cmd,2);
+					get_realm(NULL)->options.total_quota = pnv;
+					cli_print_uint(cs,(unsigned long)(get_realm(NULL)->options.total_quota),ccmds[i].cmd,2);
 				} else if(strcmp(ccmds[i].cmd,"user-quota")==0) {
-					turn_params.default_realm_params.user_quota = pnv;
-					cli_print_uint(cs,(unsigned long)(turn_params.default_realm_params.user_quota),ccmds[i].cmd,2);
+					get_realm(NULL)->options.user_quota = pnv;
+					cli_print_uint(cs,(unsigned long)(get_realm(NULL)->options.user_quota),ccmds[i].cmd,2);
 				}
 				return;
 			}
@@ -762,24 +762,24 @@ static void cli_print_configuration(struct cli_session* cs)
 
 		myprintf(cs,"\n");
 
-		if(turn_params.default_realm_params.ct == TURN_CREDENTIALS_LONG_TERM)
+		if(get_realm(NULL)->options.ct == TURN_CREDENTIALS_LONG_TERM)
 			cli_print_flag(cs,1,"Long-term authorization mechanism",0);
-		else if(turn_params.default_realm_params.ct == TURN_CREDENTIALS_SHORT_TERM)
+		else if(get_realm(NULL)->options.ct == TURN_CREDENTIALS_SHORT_TERM)
 			cli_print_flag(cs,1,"Short-term authorization mechanism",0);
 		else
 			cli_print_flag(cs,1,"Anonymous credentials",0);
-		cli_print_flag(cs,turn_params.default_realm_params.use_auth_secret_with_timestamp,"REST API support",0);
-		if(turn_params.default_realm_params.use_auth_secret_with_timestamp && turn_params.rest_api_separator)
+		cli_print_flag(cs,get_realm(NULL)->options.use_auth_secret_with_timestamp,"REST API support",0);
+		if(get_realm(NULL)->options.use_auth_secret_with_timestamp && turn_params.rest_api_separator)
 			cli_print_uint(cs,turn_params.rest_api_separator,"REST API separator ASCII number",0);
 
-		if(turn_params.default_realm_params.name[0])
-			cli_print_str(cs,turn_params.default_realm_params.name,"Realm",0);
+		if(get_realm(NULL)->name[0])
+			cli_print_str(cs,get_realm(NULL)->name,"Realm",0);
 
 		myprintf(cs,"\n");
 
-		cli_print_uint(cs,(unsigned long)turn_params.default_realm_params.total_quota,"total-quota",2);
-		cli_print_uint(cs,(unsigned long)turn_params.default_realm_params.user_quota,"user-quota",2);
-		cli_print_uint(cs,(unsigned long)turn_params.users_db.total_current_allocs,"total-current-allocs",0);
+		cli_print_uint(cs,(unsigned long)get_realm(NULL)->options.total_quota,"total-quota",2);
+		cli_print_uint(cs,(unsigned long)get_realm(NULL)->options.user_quota,"user-quota",2);
+		cli_print_uint(cs,(unsigned long)get_realm(NULL)->status.total_current_allocs,"total-current-allocs",0);
 		cli_print_uint(cs,(unsigned long)turn_params.max_bps,"max-bps",0);
 
 		myprintf(cs,"\n");

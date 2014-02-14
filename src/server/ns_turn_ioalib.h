@@ -121,6 +121,17 @@ typedef void (*connect_cb)(int success, void *arg);
 /* Callback on accepted socket from TCP relay endpoint */
 typedef void (*accept_cb)(ioa_socket_handle s, void *arg);
 
+////////// REALM ////////////
+
+struct _realm_status;
+typedef struct _realm_status realm_status;
+
+struct _realm_options;
+typedef struct _realm_options realm_options;
+
+struct _realm_params;
+typedef struct _realm_params realm_params;
+
 //////// IP White/black listing ///////////
 
 struct _ip_range_list {
@@ -241,6 +252,11 @@ void build_base64_decoding_table(void);
 unsigned char *base64_decode(const char *data,
                              size_t input_length,
                              size_t *output_length);
+
+///////////// Realm ///////////////////
+
+realm_params* get_realm(const char* name);
+realm_params* get_realm_by_origin(const char *origin);
 
 ///////////////////////////////////////
 

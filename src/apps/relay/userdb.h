@@ -103,22 +103,19 @@ typedef struct _secrets_list secrets_list_t;
 
 #define TURN_LONG_STRING_SIZE (1025)
 
-typedef struct _top_users_db_t {
+typedef struct _ram_users_db_t {
 	size_t users_number;
 	ur_string_map *static_accounts;
 	ur_string_map *dynamic_accounts;
 	secrets_list_t static_auth_secrets;
-} top_users_db_t;
+} ram_users_db_t;
 
 typedef struct _users_db_t
 {
 	TURN_USERDB_TYPE userdb_type;
 	char userdb[TURN_LONG_STRING_SIZE];
 
-	vint total_current_allocs;
-	ur_string_map *alloc_counters;
-
-	top_users_db_t top_db;
+	ram_users_db_t ram_db;
 
 } users_db_t;
 

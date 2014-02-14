@@ -230,7 +230,7 @@ static void auth_server_receive_message(struct bufferevent *bev, void *ptr)
       continue;
     }
     
-    if(turn_params.default_realm_params.ct == TURN_CREDENTIALS_SHORT_TERM) {
+    if(get_realm(NULL)->options.ct == TURN_CREDENTIALS_SHORT_TERM) {
       st_password_t pwd;
       if(get_user_pwd(am.username,pwd)<0) {
     	  am.success = 0;
@@ -1296,8 +1296,6 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 			 rs->id, turn_params.verbose,
 			 rs->ioa_eng, 0,
 			 turn_params.fingerprint, DONT_FRAGMENT_SUPPORTED,
-			 turn_params.default_realm_params.ct,
-			 (u08bits*)turn_params.default_realm_params.name,
 			 start_user_check,
 			 check_new_allocation_quota,
 			 release_allocation_quota,

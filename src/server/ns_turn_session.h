@@ -82,6 +82,8 @@ typedef struct {
   int is_mobile;
   mobile_id_t mobile_id;
   char s_mobile_id[33];
+  realm_params *realm;
+  int realm_set;
 } ts_ur_super_session;
 
 ////// Session info for statistics //////

@@ -51,9 +51,41 @@ typedef struct _turn_server_addrs_list turn_server_addrs_list_t;
 
 void init_turn_server_addrs_list(turn_server_addrs_list_t *l);
 
+//////// "variable" ints ///////////////////
+
 typedef int vint;
 
 typedef vint* vintp;
+
+////////// REALM ////////////
+
+struct _realm_status {
+
+	vint total_current_allocs;
+	ur_string_map *alloc_counters;
+
+};
+
+struct _realm_options {
+
+	turn_credential_type ct;
+	int use_auth_secret_with_timestamp;
+
+	vint total_quota;
+	vint user_quota;
+
+};
+
+struct _realm_params {
+
+	s08bits name[STUN_MAX_REALM_SIZE + 1];
+	int is_default_realm;
+
+	realm_options options;
+
+	realm_status status;
+
+};
 
 ////////// RFC 5780 ///////////////////////
 
@@ -118,8 +150,6 @@ struct _turn_turnserver {
 	send_message_cb sm_cb;
 	dont_fragment_option_t dont_fragment;
 	int (*disconnect)(ts_ur_super_session*);
-	turn_credential_type ct;
-	u08bits realm[STUN_MAX_REALM_SIZE+1];
 	get_user_key_cb userkeycb;
 	check_new_allocation_quota_cb chquotacb;
 	release_allocation_quota_cb raqcb;
@@ -164,8 +194,6 @@ void init_turn_server(turn_turnserver* server,
 				    int stun_port,
 				    int fingerprint,
 				    dont_fragment_option_t dont_fragment,
-				    turn_credential_type ct,
-				    u08bits *realm,
 				    get_user_key_cb userkeycb,
 				    check_new_allocation_quota_cb chquotacb,
 				    release_allocation_quota_cb raqcb,

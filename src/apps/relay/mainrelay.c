@@ -98,16 +98,8 @@ NEV_UNKNOWN,
 0,
 /////////////// MISC PARAMS ////////////////
 0,0,0,0,0,SHATYPE_SHA1,':',0,0,
-/////////////// DEFAULT REALM ////////////////////
-{
-  "\0", /* name */
-  1,
-  TURN_CREDENTIALS_NONE,
-  0,
-  0,0
-},
 ///////////// Users DB //////////////
-{TURN_USERDB_TYPE_FILE,"\0",0,NULL, {0,NULL,NULL, {NULL,0}} }
+{TURN_USERDB_TYPE_FILE,"\0", {0,NULL,NULL, {NULL,0}} }
 
 };
 
@@ -990,28 +982,28 @@ static void set_option(int c, char *value)
 		break;
 	case 'a':
 		if (get_bool_value(value)) {
-			turn_params.default_realm_params.ct = TURN_CREDENTIALS_LONG_TERM;
+			get_realm(NULL)->options.ct = TURN_CREDENTIALS_LONG_TERM;
 			use_lt_credentials=1;
 		} else {
-			turn_params.default_realm_params.ct = TURN_CREDENTIALS_UNDEFINED;
+			get_realm(NULL)->options.ct = TURN_CREDENTIALS_UNDEFINED;
 			use_lt_credentials=0;
 		}
 		break;
 	case 'A':
 		if (get_bool_value(value)) {
-			turn_params.default_realm_params.ct = TURN_CREDENTIALS_SHORT_TERM;
+			get_realm(NULL)->options.ct = TURN_CREDENTIALS_SHORT_TERM;
 			use_st_credentials=1;
 		} else {
-			turn_params.default_realm_params.ct = TURN_CREDENTIALS_UNDEFINED;
+			get_realm(NULL)->options.ct = TURN_CREDENTIALS_UNDEFINED;
 			use_st_credentials=0;
 		}
 		break;
 	case 'z':
 		if (!get_bool_value(value)) {
-			turn_params.default_realm_params.ct = TURN_CREDENTIALS_UNDEFINED;
+			get_realm(NULL)->options.ct = TURN_CREDENTIALS_UNDEFINED;
 			anon_credentials = 0;
 		} else {
-			turn_params.default_realm_params.ct = TURN_CREDENTIALS_NONE;
+			get_realm(NULL)->options.ct = TURN_CREDENTIALS_NONE;
 			anon_credentials = 1;
 		}
 		break;
@@ -1048,23 +1040,23 @@ static void set_option(int c, char *value)
 		break;
 #endif
 	case AUTH_SECRET_OPT:
-		turn_params.default_realm_params.use_auth_secret_with_timestamp = 1;
+		get_realm(NULL)->options.use_auth_secret_with_timestamp = 1;
 		break;
 	case STATIC_AUTH_SECRET_VAL_OPT:
-		add_to_secrets_list(&turn_params.users_db.top_db.static_auth_secrets,value);
-		turn_params.default_realm_params.use_auth_secret_with_timestamp = 1;
+		add_to_secrets_list(&turn_params.users_db.ram_db.static_auth_secrets,value);
+		get_realm(NULL)->options.use_auth_secret_with_timestamp = 1;
 		break;
 	case AUTH_SECRET_TS_EXP:
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Option --secret-ts-exp-time deprecated and has no effect.\n");
 		break;
 	case 'r':
-		STRCPY(turn_params.default_realm_params.name,value);
+		STRCPY(get_realm(NULL)->name,value);
 		break;
 	case 'q':
-		turn_params.default_realm_params.user_quota = atoi(value);
+		get_realm(NULL)->options.user_quota = atoi(value);
 		break;
 	case 'Q':
-		turn_params.default_realm_params.user_quota = atoi(value);
+		get_realm(NULL)->options.total_quota = atoi(value);
 		break;
 	case 's':
 		turn_params.max_bps = (band_limit_t)atol(value);
@@ -1543,6 +1535,8 @@ int main(int argc, char **argv)
 
 	init_super_memory();
 
+	create_realm(NULL);
+
 	init_turn_server_addrs_list(&turn_params.alternate_servers_list);
 	init_turn_server_addrs_list(&turn_params.tls_alternate_servers_list);
 	init_turn_server_addrs_list(&turn_params.aux_servers_list);
@@ -1550,7 +1544,7 @@ int main(int argc, char **argv)
 	set_network_engine();
 
 	init_listener();
-	init_secrets_list(&turn_params.users_db.top_db.static_auth_secrets);
+	init_secrets_list(&turn_params.users_db.ram_db.static_auth_secrets);
 	init_dynamic_ip_lists();
 
 	if (!strstr(argv[0], "turnadmin")) {
@@ -1597,10 +1591,8 @@ int main(int argc, char **argv)
 #endif
 
 	ns_bzero(&turn_params.users_db,sizeof(users_db_t));
-	turn_params.default_realm_params.ct = TURN_CREDENTIALS_NONE;
-	turn_params.users_db.top_db.static_accounts = ur_string_map_create(free);
-	turn_params.users_db.top_db.dynamic_accounts = ur_string_map_create(free);
-	turn_params.users_db.alloc_counters = ur_string_map_create(NULL);
+	turn_params.users_db.ram_db.static_accounts = ur_string_map_create(free);
+	turn_params.users_db.ram_db.dynamic_accounts = ur_string_map_create(free);
 
 	if(strstr(argv[0],"turnadmin"))
 		return adminmain(argc,argv);
@@ -1674,34 +1666,34 @@ int main(int argc, char **argv)
 	}
 
 	if(!use_lt_credentials && !anon_credentials && !use_st_credentials) {
-		if(turn_params.users_db.top_db.users_number) {
+		if(turn_params.users_db.ram_db.users_number) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you specified long-term user accounts, (-u option) \n	but you did not specify the long-term credentials option\n	(-a or --lt-cred-mech option).\n 	I am turning --lt-cred-mech ON for you, but double-check your configuration.\n");
-			turn_params.default_realm_params.ct = TURN_CREDENTIALS_LONG_TERM;
+			get_realm(NULL)->options.ct = TURN_CREDENTIALS_LONG_TERM;
 			use_lt_credentials=1;
 		} else {
-			turn_params.default_realm_params.ct = TURN_CREDENTIALS_NONE;
+			get_realm(NULL)->options.ct = TURN_CREDENTIALS_NONE;
 			use_lt_credentials=0;
 		}
 	}
 
 	if(use_lt_credentials) {
-		if(!turn_params.users_db.top_db.users_number && (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_FILE) && !turn_params.default_realm_params.use_auth_secret_with_timestamp) {
+		if(!turn_params.users_db.ram_db.users_number && (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_FILE) && !get_realm(NULL)->options.use_auth_secret_with_timestamp) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did not specify any user account, (-u option) \n	but you did specified a long-term credentials mechanism option (-a option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
-		} else if(!turn_params.default_realm_params.name[0]) {
+		} else if(!get_realm(NULL)->name[0]) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did specify the long-term credentials usage\n but you did not specify the realm option (-r option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
 		}
 	}
 
 	if(anon_credentials) {
-		if(turn_params.users_db.top_db.users_number) {
+		if(turn_params.users_db.ram_db.users_number) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you specified user accounts, (-u option) \n	but you also specified the anonymous user access option (-z or --no-auth option).\n 	User accounts will be ignored.\n");
-			turn_params.default_realm_params.ct = TURN_CREDENTIALS_NONE;
+			get_realm(NULL)->options.ct = TURN_CREDENTIALS_NONE;
 			use_lt_credentials=0;
 			use_st_credentials=0;
 		}
 	}
 
-	if(turn_params.default_realm_params.use_auth_secret_with_timestamp && use_st_credentials) {
+	if(get_realm(NULL)->options.use_auth_secret_with_timestamp && use_st_credentials) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "\nCONFIGURATION ERROR: Authentication secret (REST API) cannot be used with short-term credentials mechanism.\n");
 		exit(-1);
 	}

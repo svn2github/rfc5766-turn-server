@@ -218,6 +218,12 @@ typedef struct _timer_event
 	s08bits* txt;
 } timer_event;
 
+///////////////////////////////////
+
+/* realm */
+
+realm_params* create_realm(const char* name);
+
 /* engine handling */
 
 ioa_engine_handle create_ioa_engine(super_memory_t *sm,

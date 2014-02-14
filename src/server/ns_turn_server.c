@@ -78,7 +78,7 @@ static int read_client_connection(turn_turnserver *server, ts_ur_session *elem,
 				  ts_ur_super_session *ss, ioa_net_data *in_buffer,
 				  int can_resume, int count_usage);
 
-static int need_stun_authentication(turn_turnserver *server);
+static int need_stun_authentication(ts_ur_super_session *ss);
 
 /////////////////// timer //////////////////////////
 
@@ -645,6 +645,7 @@ static ts_ur_super_session* create_new_ss(turn_turnserver* server) {
 	ns_bzero(ss,sizeof(ts_ur_super_session));
 	ss->server = server;
 	ss->shatype = server->shatype;
+	ss->realm = get_realm(NULL);
 	put_session_into_map(ss);
 	init_allocation(ss,&(ss->alloc), server->tcp_relay_connections);
 	return ss;
@@ -1339,7 +1340,7 @@ static int handle_turn_refresh(turn_turnserver *server,
 
 										if(message_integrity) {
 											adjust_shatype(server,ss);
-											stun_attr_add_integrity_str(server->ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
+											stun_attr_add_integrity_str(ss->realm->options.ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
 											ioa_network_buffer_set_size(nbh,len);
 										}
 
@@ -1563,9 +1564,9 @@ static void tcp_peer_connection_completed_callback(int success, void *arg)
 
 		ioa_network_buffer_set_size(nbh,len);
 
-		if(need_stun_authentication(server)) {
+		if(need_stun_authentication(ss)) {
 			adjust_shatype(server,ss);
-			stun_attr_add_integrity_str(server->ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
+			stun_attr_add_integrity_str(ss->realm->options.ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
 			ioa_network_buffer_set_size(nbh,len);
 		}
 
@@ -1746,10 +1747,10 @@ static void tcp_peer_accept_connection(ioa_socket_handle s, void *arg)
 		}
 
 		/* We add integrity for both long-term and short-term indication messages */
-		/* if(server->ct == TURN_CREDENTIALS_SHORT_TERM) */
+		/* if(ss->realm->options.ct == TURN_CREDENTIALS_SHORT_TERM) */
 		{
 			adjust_shatype(server,ss);
-			stun_attr_add_integrity_str(server->ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
+			stun_attr_add_integrity_str(ss->realm->options.ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
 			ioa_network_buffer_set_size(nbh,len);
 		}
 
@@ -2022,7 +2023,7 @@ int turnserver_accept_tcp_client_data_connection(turn_turnserver *server, tcp_co
 		if(message_integrity && ss) {
 			size_t len = ioa_network_buffer_get_size(nbh);
 			adjust_shatype(server,ss);
-			stun_attr_add_integrity_str(server->ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
+			stun_attr_add_integrity_str(ss->realm->options.ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
 			ioa_network_buffer_set_size(nbh,len);
 		}
 
@@ -2683,20 +2684,23 @@ static int handle_turn_create_permission(turn_turnserver *server,
 
 // AUTH ==>>
 
-static int need_stun_authentication(turn_turnserver *server)
+static int need_stun_authentication(ts_ur_super_session *ss)
 {
-	switch(server->ct) {
+	UNUSED_ARG(ss);
+
+	switch(ss->realm->options.ct) {
 	case TURN_CREDENTIALS_LONG_TERM:
 		return 1;
 	case TURN_CREDENTIALS_SHORT_TERM:
 		return 1;
 	default:
-		return 0;
+		;
 	};
+
+	return 0;
 }
 
-static int create_challenge_response(turn_turnserver *server,
-				ts_ur_super_session *ss, stun_tid *tid, int *resp_constructed,
+static int create_challenge_response(ts_ur_super_session *ss, stun_tid *tid, int *resp_constructed,
 				int *err_code, 	const u08bits **reason,
 				ioa_network_buffer_handle nbh,
 				u16bits method)
@@ -2706,8 +2710,9 @@ static int create_challenge_response(turn_turnserver *server,
 	*resp_constructed = 1;
 	stun_attr_add_str(ioa_network_buffer_data(nbh), &len, STUN_ATTRIBUTE_NONCE,
 					ss->nonce, (int)(NONCE_MAX_SIZE-1));
+	char *realm = ss->realm->name;
 	stun_attr_add_str(ioa_network_buffer_data(nbh), &len, STUN_ATTRIBUTE_REALM,
-					server->realm, (int)(strlen((s08bits*)(server->realm))));
+					(u08bits*)realm, (int)(strlen((s08bits*)(realm))));
 	ioa_network_buffer_set_size(nbh,len);
 	return 0;
 }
@@ -2755,7 +2760,7 @@ static int check_stun_auth(turn_turnserver *server,
 	u08bits nonce[STUN_MAX_NONCE_SIZE+1];
 	size_t alen = 0;
 
-	if(!need_stun_authentication(server))
+	if(!need_stun_authentication(ss))
 		return 0;
 
 	int new_nonce = 0;
@@ -2792,15 +2797,15 @@ static int check_stun_auth(turn_turnserver *server,
 	if(!sar) {
 		*err_code = 401;
 		*reason = (const u08bits*)"Unauthorised";
-		if(server->ct != TURN_CREDENTIALS_SHORT_TERM) {
-			return create_challenge_response(server,ss,tid,resp_constructed,err_code,reason,nbh,method);
+		if(ss->realm->options.ct != TURN_CREDENTIALS_SHORT_TERM) {
+			return create_challenge_response(ss,tid,resp_constructed,err_code,reason,nbh,method);
 		} else {
 			return -1;
 		}
 
 	}
 
-	if(server->ct != TURN_CREDENTIALS_SHORT_TERM) {
+	if(ss->realm->options.ct != TURN_CREDENTIALS_SHORT_TERM) {
 
 		/* REALM ATTR: */
 
@@ -2835,7 +2840,7 @@ static int check_stun_auth(turn_turnserver *server,
 	ns_bcopy(stun_attr_get_value(sar),usname,alen);
 	usname[alen]=0;
 
-	if(server->ct != TURN_CREDENTIALS_SHORT_TERM) {
+	if(ss->realm->options.ct != TURN_CREDENTIALS_SHORT_TERM) {
 		/* NONCE ATTR: */
 
 		sar = stun_attr_get_first_by_type_str(ioa_network_buffer_data(in_buffer->nbh),
@@ -2857,13 +2862,13 @@ static int check_stun_auth(turn_turnserver *server,
 		if(new_nonce) {
 			*err_code = 401;
 			*reason = (const u08bits*)"Unauthorized";
-			return create_challenge_response(server,ss,tid,resp_constructed,err_code,reason,nbh,method);
+			return create_challenge_response(ss,tid,resp_constructed,err_code,reason,nbh,method);
 		}
 
 		if(strcmp((s08bits*)ss->nonce,(s08bits*)nonce)) {
 			*err_code = 438;
 			*reason = (const u08bits*)"Stale nonce";
-			return create_challenge_response(server,ss,tid,resp_constructed,err_code,reason,nbh,method);
+			return create_challenge_response(ss,tid,resp_constructed,err_code,reason,nbh,method);
 		}
 	}
 
@@ -2884,8 +2889,8 @@ static int check_stun_auth(turn_turnserver *server,
 					__FUNCTION__, (char*)usname);
 			*err_code = 401;
 			*reason = (const u08bits*)"Unauthorised";
-			if(server->ct != TURN_CREDENTIALS_SHORT_TERM) {
-				return create_challenge_response(server,ss,tid,resp_constructed,err_code,reason,nbh,method);
+			if(ss->realm->options.ct != TURN_CREDENTIALS_SHORT_TERM) {
+				return create_challenge_response(ss,tid,resp_constructed,err_code,reason,nbh,method);
 			} else {
 				return -1;
 			}
@@ -2897,7 +2902,7 @@ static int check_stun_auth(turn_turnserver *server,
 	SHATYPE sht;
 
 	/* Check integrity */
-	if(stun_check_message_integrity_by_key_str(server->ct,ioa_network_buffer_data(in_buffer->nbh),
+	if(stun_check_message_integrity_by_key_str(ss->realm->options.ct,ioa_network_buffer_data(in_buffer->nbh),
 					  ioa_network_buffer_get_size(in_buffer->nbh),
 					  ss->hmackey,
 					  ss->pwd,
@@ -2907,8 +2912,8 @@ static int check_stun_auth(turn_turnserver *server,
 				__FUNCTION__, (char*)usname);
 		*err_code = 401;
 		*reason = (const u08bits*)"Unauthorised";
-		if(server->ct != TURN_CREDENTIALS_SHORT_TERM) {
-			return create_challenge_response(server,ss,tid,resp_constructed,err_code,reason,nbh,method);
+		if(ss->realm->options.ct != TURN_CREDENTIALS_SHORT_TERM) {
+			return create_challenge_response(ss,tid,resp_constructed,err_code,reason,nbh,method);
 		} else {
 			return -1;
 		}
@@ -2921,8 +2926,8 @@ static int check_stun_auth(turn_turnserver *server,
 						__FUNCTION__, (char*)usname);
 		*err_code = SHA_TOO_WEAK;
 		*reason = (const u08bits*)"Unauthorised: weak SHA function is used";
-		if(server->ct != TURN_CREDENTIALS_SHORT_TERM) {
-			return create_challenge_response(server,ss,tid,resp_constructed,err_code,reason,nbh,method);
+		if(ss->realm->options.ct != TURN_CREDENTIALS_SHORT_TERM) {
+			return create_challenge_response(ss,tid,resp_constructed,err_code,reason,nbh,method);
 		} else {
 			return -1;
 		}
@@ -3047,6 +3052,22 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 					set_alternate_server(asl,get_local_addr_from_ioa_socket(ss->client_session.s),&(server->as_counter),method,&tid,resp_constructed,&err_code,&reason,nbh);
 					turn_mutex_unlock(&(asl->m));
 				}
+			}
+
+			if(!(ss->realm_set)) {
+				stun_attr_ref sar = stun_attr_get_first_by_type_str(ioa_network_buffer_data(nbh),
+					ioa_network_buffer_get_size(nbh),
+					STUN_ATTRIBUTE_ORIGIN);
+
+				if(sar) {
+					int sarlen = stun_attr_get_len(sar);
+					if(sarlen>0) {
+						char origin[513];
+						strncpy(origin,(char*)stun_attr_get_value(sar),(size_t)sarlen);
+						ss->realm = get_realm_by_origin(origin);
+					}
+				}
+				ss->realm_set = 1;
 			}
 
 			if(!err_code && !(*resp_constructed) && !no_response) {
@@ -3182,7 +3203,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 		no_response = 1;
 		int postpone = 0;
 
-		if(server->ct == TURN_CREDENTIALS_SHORT_TERM) {
+		if(ss->realm->options.ct == TURN_CREDENTIALS_SHORT_TERM) {
 			check_stun_auth(server, ss, &tid, resp_constructed, &err_code, &reason, in_buffer, nbh, method, &message_integrity, &postpone, can_resume);
 		}
 
@@ -3272,7 +3293,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 		if(message_integrity) {
 			size_t len = ioa_network_buffer_get_size(nbh);
 			adjust_shatype(server,ss);
-			stun_attr_add_integrity_str(server->ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
+			stun_attr_add_integrity_str(ss->realm->options.ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
 			ioa_network_buffer_set_size(nbh,len);
 		}
 
@@ -4089,10 +4110,10 @@ static void peer_input_handler(ioa_socket_handle s, int event_type,
 				}
 
 				/* We add integrity for both long-term and short-term indication messages */
-				/* if(server->ct == TURN_CREDENTIALS_SHORT_TERM) */
+				/* if(ss->realm->options.ct == TURN_CREDENTIALS_SHORT_TERM) */
 				{
 					adjust_shatype(server,ss);
-					stun_attr_add_integrity_str(server->ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
+					stun_attr_add_integrity_str(ss->realm->options.ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
 					ioa_network_buffer_set_size(nbh,len);
 				}
 
@@ -4173,8 +4194,6 @@ static void client_input_handler(ioa_socket_handle s, int event_type,
 void init_turn_server(turn_turnserver* server,
 		turnserver_id id, int verbose, ioa_engine_handle e,
 		int stun_port, int fingerprint, dont_fragment_option_t dont_fragment,
-		turn_credential_type ct,
-		u08bits *realm,
 		get_user_key_cb userkeycb,
 		check_new_allocation_quota_cb chquotacb,
 		release_allocation_quota_cb raqcb,
@@ -4205,8 +4224,6 @@ void init_turn_server(turn_turnserver* server,
 	server->session_id_counter = 0;
 	server->sessions_map = ur_map_create();
 	server->tcp_relay_connections = ur_map_create();
-	server->ct = ct;
-	STRCPY(server->realm,realm);
 	server->userkeycb = userkeycb;
 	server->chquotacb = chquotacb;
 	server->raqcb = raqcb;

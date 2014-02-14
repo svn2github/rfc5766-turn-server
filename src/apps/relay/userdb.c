@@ -74,6 +74,79 @@
 
 #include "apputils.h"
 
+//////////// REALM //////////////
+
+static int default_realm_params_created = 0;
+static realm_params default_realm_params =
+{
+  "\0", /* name */
+  1,
+  {
+    TURN_CREDENTIALS_NONE,
+    0,0,0
+  },
+  {0,NULL}
+};
+
+static ur_string_map *realms = NULL;
+
+realm_params* create_realm(const char* name)
+{
+	realm_params *ret = NULL;
+
+	if((name == NULL)||(name[0]==0)) {
+		ret = &(default_realm_params);
+		if(default_realm_params_created)
+			return ret;
+		default_realm_params.is_default_realm = 1;
+		default_realm_params.options.ct = TURN_CREDENTIALS_NONE;
+		default_realm_params_created = 1;
+		realms = ur_string_map_create(NULL);
+	} else {
+		if(default_realm_params_created) {
+			if(!strcmp(name,default_realm_params.name))
+				return &(default_realm_params);
+		}
+
+		ur_string_map_value_type value = 0;
+		if (!ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
+			ret = (realm_params*)turn_malloc(sizeof(realm_params));
+			ns_bzero(ret,sizeof(realm_params));
+			STRCPY(ret->name,name);
+			value = (ur_string_map_value_type)ret;
+			ur_string_map_put(realms, (ur_string_map_key_type) name, value);
+		} else {
+			ret = (realm_params*)value;
+			return ret;
+		}
+	}
+
+	ret->status.alloc_counters =  ur_string_map_create(NULL);
+
+	return ret;
+}
+
+realm_params* get_realm(const char* name)
+{
+	if((name == NULL)||(name[0]==0)||(!strcmp(name,default_realm_params.name)))
+		return &(default_realm_params);
+	else {
+	  ur_string_map_value_type value = 0;
+	  if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
+		  return (realm_params*)value;
+	  }
+	}
+
+	return NULL;
+}
+
+realm_params* get_realm_by_origin(const char *origin)
+{
+	//TODO
+	UNUSED_ARG(origin);
+	return get_realm(NULL);
+}
+
 //////////// USER DB //////////////////////////////
 
 #define LONG_STRING_SIZE (TURN_LONG_STRING_SIZE)
@@ -618,10 +691,10 @@ static int get_auth_secrets(secrets_list_t *sl)
 
 	clean_secrets_list(sl);
 
-	if(get_secrets_list_size(&turn_params.users_db.top_db.static_auth_secrets)) {
+	if(get_secrets_list_size(&turn_params.users_db.ram_db.static_auth_secrets)) {
 		size_t i = 0;
-		for(i=0;i<get_secrets_list_size(&turn_params.users_db.top_db.static_auth_secrets);++i) {
-			add_to_secrets_list(sl,get_secrets_list_elem(&turn_params.users_db.top_db.static_auth_secrets,i));
+		for(i=0;i<get_secrets_list_size(&turn_params.users_db.ram_db.static_auth_secrets);++i) {
+			add_to_secrets_list(sl,get_secrets_list_elem(&turn_params.users_db.ram_db.static_auth_secrets,i));
 		}
 		ret=0;
 	}
@@ -786,7 +859,7 @@ static turn_time_t get_rest_api_timestamp(char *usname)
 
 static char *get_real_username(char *usname)
 {
-	if(turn_params.default_realm_params.use_auth_secret_with_timestamp) {
+	if(get_realm(NULL)->options.use_auth_secret_with_timestamp) {
 		char *col=strchr(usname,turn_params.rest_api_separator);
 		if(col) {
 			if(col == usname) {
@@ -823,7 +896,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 {
 	int ret = -1;
 
-	if(turn_params.default_realm_params.use_auth_secret_with_timestamp) {
+	if(get_realm(NULL)->options.use_auth_secret_with_timestamp) {
 
 		turn_time_t ctime = (turn_time_t) time(NULL);
 		turn_time_t ts = 0;
@@ -879,7 +952,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 							if(pwd_length<1) {
 								turn_free(pwd,strlen(pwd)+1);
 							} else {
-								if(stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)turn_params.default_realm_params.name, (u08bits*)pwd, key)>=0) {
+								if(stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)get_realm(NULL)->name, (u08bits*)pwd, key)>=0) {
 
 									SHATYPE sht;
 
@@ -910,17 +983,17 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 	}
 
 	ur_string_map_value_type ukey = NULL;
-	ur_string_map_lock(turn_params.users_db.top_db.static_accounts);
-	if(ur_string_map_get(turn_params.users_db.top_db.static_accounts, (ur_string_map_key_type)usname, &ukey)) {
+	ur_string_map_lock(turn_params.users_db.ram_db.static_accounts);
+	if(ur_string_map_get(turn_params.users_db.ram_db.static_accounts, (ur_string_map_key_type)usname, &ukey)) {
 		ret = 0;
 	} else {
-		ur_string_map_lock(turn_params.users_db.top_db.dynamic_accounts);
-		if(ur_string_map_get(turn_params.users_db.top_db.dynamic_accounts, (ur_string_map_key_type)usname, &ukey)) {
+		ur_string_map_lock(turn_params.users_db.ram_db.dynamic_accounts);
+		if(ur_string_map_get(turn_params.users_db.ram_db.dynamic_accounts, (ur_string_map_key_type)usname, &ukey)) {
 			ret = 0;
 		}
-		ur_string_map_unlock(turn_params.users_db.top_db.dynamic_accounts);
+		ur_string_map_unlock(turn_params.users_db.ram_db.dynamic_accounts);
 	}
-	ur_string_map_unlock(turn_params.users_db.top_db.static_accounts);
+	ur_string_map_unlock(turn_params.users_db.ram_db.static_accounts);
 
 	if(ret==0) {
 		ns_bcopy(ukey,key,sizeof(hmackey_t));
@@ -1033,7 +1106,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 						if (rget->type != REDIS_REPLY_NIL)
 							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", rget->type);
 					} else {
-						if(stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)turn_params.default_realm_params.name, (u08bits*)rget->str, key)>=0) {
+						if(stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)get_realm(NULL)->name, (u08bits*)rget->str, key)>=0) {
 							ret = 0;
 						}
 					}
@@ -1166,27 +1239,27 @@ int check_new_allocation_quota(u08bits *user)
 	int ret = 0;
 	if (user) {
 		u08bits *username = (u08bits*)get_real_username((char*)user);
-		ur_string_map_lock(turn_params.users_db.alloc_counters);
-		if (turn_params.default_realm_params.total_quota && (turn_params.users_db.total_current_allocs >= turn_params.default_realm_params.total_quota)) {
+		ur_string_map_lock(get_realm(NULL)->status.alloc_counters);
+		if (get_realm(NULL)->options.total_quota && (get_realm(NULL)->status.total_current_allocs >= get_realm(NULL)->options.total_quota)) {
 			ret = -1;
 		} else {
 			ur_string_map_value_type value = 0;
-			if (!ur_string_map_get(turn_params.users_db.alloc_counters, (ur_string_map_key_type) username, &value)) {
+			if (!ur_string_map_get(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, &value)) {
 				value = (ur_string_map_value_type) 1;
-				ur_string_map_put(turn_params.users_db.alloc_counters, (ur_string_map_key_type) username, value);
-				++(turn_params.users_db.total_current_allocs);
+				ur_string_map_put(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, value);
+				++(get_realm(NULL)->status.total_current_allocs);
 			} else {
-				if ((turn_params.default_realm_params.user_quota) && ((size_t) value >= (size_t)(turn_params.default_realm_params.user_quota))) {
+				if ((get_realm(NULL)->options.user_quota) && ((size_t) value >= (size_t)(get_realm(NULL)->options.user_quota))) {
 					ret = -1;
 				} else {
 					value = (ur_string_map_value_type)(((size_t)value) + 1);
-					ur_string_map_put(turn_params.users_db.alloc_counters, (ur_string_map_key_type) username, value);
-					++(turn_params.users_db.total_current_allocs);
+					ur_string_map_put(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, value);
+					++(get_realm(NULL)->status.total_current_allocs);
 				}
 			}
 		}
 		turn_free(username,strlen(username)+1);
-		ur_string_map_unlock(turn_params.users_db.alloc_counters);
+		ur_string_map_unlock(get_realm(NULL)->status.alloc_counters);
 	}
 	return ret;
 }
@@ -1195,16 +1268,16 @@ void release_allocation_quota(u08bits *user)
 {
 	if (user) {
 		u08bits *username = (u08bits*)get_real_username((char*)user);
-		ur_string_map_lock(turn_params.users_db.alloc_counters);
+		ur_string_map_lock(get_realm(NULL)->status.alloc_counters);
 		ur_string_map_value_type value = 0;
-		ur_string_map_get(turn_params.users_db.alloc_counters, (ur_string_map_key_type) username, &value);
+		ur_string_map_get(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, &value);
 		if (value) {
 			value = (ur_string_map_value_type)(((size_t)value) - 1);
-			ur_string_map_put(turn_params.users_db.alloc_counters, (ur_string_map_key_type) username, value);
+			ur_string_map_put(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, value);
 		}
-		if (turn_params.users_db.total_current_allocs)
-			--(turn_params.users_db.total_current_allocs);
-		ur_string_map_unlock(turn_params.users_db.alloc_counters);
+		if (get_realm(NULL)->status.total_current_allocs)
+			--(get_realm(NULL)->status.total_current_allocs);
+		ur_string_map_unlock(get_realm(NULL)->status.alloc_counters);
 		turn_free(username, strlen(username)+1);
 	}
 }
@@ -1219,7 +1292,7 @@ void read_userdb_file(int to_print)
 
 	if(turn_params.users_db.userdb_type != TURN_USERDB_TYPE_FILE)
 		return;
-	if(turn_params.default_realm_params.use_auth_secret_with_timestamp)
+	if(get_realm(NULL)->options.use_auth_secret_with_timestamp)
 		return;
 
 	FILE *f = NULL;
@@ -1247,9 +1320,9 @@ void read_userdb_file(int to_print)
 
 		char sbuf[LONG_STRING_SIZE];
 
-		ur_string_map_lock(turn_params.users_db.top_db.dynamic_accounts);
+		ur_string_map_lock(turn_params.users_db.ram_db.dynamic_accounts);
 
-		ur_string_map_clean(turn_params.users_db.top_db.dynamic_accounts);
+		ur_string_map_clean(turn_params.users_db.ram_db.dynamic_accounts);
 
 		for (;;) {
 			char *s = fgets(sbuf, sizeof(sbuf) - 1, f);
@@ -1275,7 +1348,7 @@ void read_userdb_file(int to_print)
 			}
 		}
 
-		ur_string_map_unlock(turn_params.users_db.top_db.dynamic_accounts);
+		ur_string_map_unlock(turn_params.users_db.ram_db.dynamic_accounts);
 
 		fclose(f);
 
@@ -1288,7 +1361,7 @@ void read_userdb_file(int to_print)
 
 int add_user_account(char *user, int dynamic)
 {
-	if(user && !turn_params.default_realm_params.use_auth_secret_with_timestamp) {
+	if(user && !get_realm(NULL)->options.use_auth_secret_with_timestamp) {
 		char *s = strstr(user, ":");
 		if(!s || (s==user) || (strlen(s)<2)) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Wrong user account: %s\n",user);
@@ -1313,18 +1386,18 @@ int add_user_account(char *user, int dynamic)
 					return -1;
 				}
 			} else {
-				stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)turn_params.default_realm_params.name, (u08bits*)s, *key);
+				stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)get_realm(NULL)->name, (u08bits*)s, *key);
 			}
 			if(dynamic) {
-				ur_string_map_lock(turn_params.users_db.top_db.dynamic_accounts);
-				ur_string_map_put(turn_params.users_db.top_db.dynamic_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
-				ur_string_map_unlock(turn_params.users_db.top_db.dynamic_accounts);
+				ur_string_map_lock(turn_params.users_db.ram_db.dynamic_accounts);
+				ur_string_map_put(turn_params.users_db.ram_db.dynamic_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
+				ur_string_map_unlock(turn_params.users_db.ram_db.dynamic_accounts);
 			} else {
-				ur_string_map_lock(turn_params.users_db.top_db.static_accounts);
-				ur_string_map_put(turn_params.users_db.top_db.static_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
-				ur_string_map_unlock(turn_params.users_db.top_db.static_accounts);
+				ur_string_map_lock(turn_params.users_db.ram_db.static_accounts);
+				ur_string_map_put(turn_params.users_db.ram_db.static_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
+				ur_string_map_unlock(turn_params.users_db.ram_db.static_accounts);
 			}
-			turn_params.users_db.top_db.users_number++;
+			turn_params.users_db.ram_db.users_number++;
 			free(usname);
 			return 0;
 		}

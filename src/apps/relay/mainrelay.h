@@ -179,19 +179,6 @@ struct auth_server {
 
 /////////// PARAMS //////////////////////////////////
 
-typedef struct _realm_params {
-
-	s08bits name[STUN_MAX_REALM_SIZE + 1];
-	int is_default_realm;
-
-	turn_credential_type ct;
-
-	int use_auth_secret_with_timestamp;
-	vint total_quota;
-	vint user_quota;
-
-} realm_params;
-
 typedef struct _turn_params_ {
 
 //////////////// OpenSSL group //////////////////////
@@ -317,10 +304,6 @@ typedef struct _turn_params_ {
   char rest_api_separator;
   vint stale_nonce;
   vint mobility;
-
-////////////// DEFAULT REALM /////////////////////
-
-  realm_params default_realm_params;
 
 /////// Users DB ///////////
 
