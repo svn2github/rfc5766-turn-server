@@ -2,6 +2,7 @@
 Version 3.3.0.0 'Threetrees':
 	- working on origin draft and multi-tenant server.
 	- minor optimization work.
+	- Fixes for issues 99, 100, 101.
 
 02/04/2014 Oleg Moskalenko <mom040267@gmail.com>
 Version 3.2.2.6 'Marshal West':
