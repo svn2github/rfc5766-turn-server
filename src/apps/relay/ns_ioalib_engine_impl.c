@@ -212,20 +212,23 @@ static void free_blist_elem(ioa_engine_handle e, stun_buffer_list_elem *elem)
 
 /************** ENGINE *************************/
 
+#define TURN_JIFFIE_SIZE (3)
+#define TURN_JIFFIE_LENGTH (1<<(TURN_JIFFIE_SIZE))
+
 static void timer_handler(ioa_engine_handle e, void* arg) {
 
   UNUSED_ARG(arg);
 
-  e->jiffie = turn_time();
-
-  _log_time_value = e->jiffie;
+  _log_time_value = turn_time();
   _log_time_value_set = 1;
+
+  e->jiffie = _log_time_value >> TURN_JIFFIE_SIZE;
 }
 
 ioa_engine_handle create_ioa_engine(super_memory_t *sm,
 				struct event_base *eb, turnipports *tp, const s08bits* relay_ifname,
 				size_t relays_number, s08bits **relay_addrs, int default_relays,
-				int verbose, band_limit_t max_bps)
+				int verbose)
 {
 	static int capabilities_checked = 0;
 
@@ -256,7 +259,6 @@ ioa_engine_handle create_ioa_engine(super_memory_t *sm,
 
 		e->sm = sm;
 		e->default_relays = default_relays;
-		e->max_bpj = max_bps;
 		e->verbose = verbose;
 		e->tp = tp;
 		if (eb) {
@@ -505,29 +507,36 @@ void delete_ioa_timer(ioa_timer_handle th)
 
 static int ioa_socket_check_bandwidth(ioa_socket_handle s, size_t sz)
 {
-	if((s->e->max_bpj == 0) || (s->sat != CLIENT_SOCKET)) {
-		return 1;
-	} else {
-		band_limit_t bsz = (band_limit_t)sz;
-		if(s->jiffie != s->e->jiffie) {
-			s->jiffie = s->e->jiffie;
-			if(bsz > s->e->max_bpj) {
-				s->jiffie_bytes = 0;
-				return 0;
+	if((s->sat == CLIENT_SOCKET) && s->session) {
+		band_limit_t max_bps = s->session->realm->options.max_bps;
+		if(max_bps>0) {
+
+			max_bps = max_bps<<TURN_JIFFIE_SIZE;
+
+			band_limit_t bsz = (band_limit_t)sz;
+
+			if(s->jiffie != s->e->jiffie) {
+				s->jiffie = s->e->jiffie;
+				if(bsz > max_bps) {
+					s->jiffie_bytes = 0;
+					return 0;
+				} else {
+					s->jiffie_bytes = bsz;
+					return 1;
+				}
 			} else {
-				s->jiffie_bytes = bsz;
-				return 1;
-			}
-		} else {
-			band_limit_t nsz = s->jiffie_bytes + bsz;
-			if(nsz > s->e->max_bpj)
-				return 0;
-			else {
-				s->jiffie_bytes = nsz;
-				return 1;
+				band_limit_t nsz = s->jiffie_bytes + bsz;
+				if(nsz > max_bps)
+					return 0;
+				else {
+					s->jiffie_bytes = nsz;
+					return 1;
+				}
 			}
 		}
 	}
+
+	return 1;
 }
 
 int get_ioa_socket_from_reservation(ioa_engine_handle e, u64bits in_reservation_token, ioa_socket_handle *s)
@@ -1622,7 +1631,7 @@ void *get_ioa_socket_session(ioa_socket_handle s)
 void set_ioa_socket_session(ioa_socket_handle s, void *ss)
 {
 	if(s)
-		s->session = ss;
+		s->session = (ts_ur_super_session*)ss;
 }
 
 void clear_ioa_socket_session_if(ioa_socket_handle s, void *ss)

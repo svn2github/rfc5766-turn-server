@@ -83,14 +83,14 @@ static realm_params default_realm_params =
   1,
   {
     TURN_CREDENTIALS_NONE,
-    0,0,0
+    0,0,0,0
   },
   {0,NULL}
 };
 
 static ur_string_map *realms = NULL;
 
-realm_params* create_realm(const char* name)
+realm_params* create_realm(char* name)
 {
 	realm_params *ret = NULL;
 
@@ -126,10 +126,15 @@ realm_params* create_realm(const char* name)
 	return ret;
 }
 
-realm_params* get_realm(const char* name)
+realm_params* get_default_realm()
+{
+	return &(default_realm_params);
+}
+
+realm_params* get_realm(char* name)
 {
 	if((name == NULL)||(name[0]==0)||(!strcmp(name,default_realm_params.name)))
-		return &(default_realm_params);
+		return get_default_realm();
 	else {
 	  ur_string_map_value_type value = 0;
 	  if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
@@ -137,10 +142,10 @@ realm_params* get_realm(const char* name)
 	  }
 	}
 
-	return NULL;
+	return get_default_realm();
 }
 
-realm_params* get_realm_by_origin(const char *origin)
+realm_params* get_realm_by_origin(char *origin)
 {
 	//TODO
 	UNUSED_ARG(origin);

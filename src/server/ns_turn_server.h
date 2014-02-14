@@ -57,6 +57,8 @@ typedef int vint;
 
 typedef vint* vintp;
 
+typedef unsigned long band_limit_t;
+
 ////////// REALM ////////////
 
 struct _realm_status {
@@ -74,6 +76,7 @@ struct _realm_options {
 	vint total_quota;
 	vint user_quota;
 
+	band_limit_t max_bps;
 };
 
 struct _realm_params {

@@ -255,8 +255,7 @@ unsigned char *base64_decode(const char *data,
 
 ///////////// Realm ///////////////////
 
-realm_params* get_realm(const char* name);
-realm_params* get_realm_by_origin(const char *origin);
+realm_params* get_default_realm();
 
 ///////////////////////////////////////
 

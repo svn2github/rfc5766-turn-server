@@ -77,8 +77,6 @@ typedef struct _stun_buffer_list {
 	size_t tsz;
 } stun_buffer_list;
 
-typedef unsigned long band_limit_t;
-
 /*
  * New connection callback
  */
@@ -142,8 +140,7 @@ struct _ioa_engine
 #endif
 #endif
   SSL_CTX *dtls_ctx;
-  turn_time_t jiffie;
-  band_limit_t max_bpj;
+  turn_time_t jiffie; /* bandwidth check interval */
   ioa_timer_handle timer_ev;
   s08bits cmsg[TURN_CMSG_SZ+1];
   int predef_timer_intervals[PREDEF_TIMERS_NUM];
@@ -182,7 +179,7 @@ struct _ioa_socket
 	ioa_net_event_handler read_cb;
 	void *read_ctx;
 	int done;
-	void* session;
+	ts_ur_super_session* session;
 	int current_df_relay_flag;
 	/* RFC6156: if IPv6 is involved, do not use DF: */
 	int do_not_use_df;
@@ -193,7 +190,7 @@ struct _ioa_socket
 	int default_tos;
 	int current_tos;
 	stun_buffer_list bufs;
-	turn_time_t jiffie;
+	turn_time_t jiffie; /* bandwidth check interval */
 	band_limit_t jiffie_bytes;
 	/* RFC 6062 ==>> */
 	//Connection session:
@@ -222,7 +219,9 @@ typedef struct _timer_event
 
 /* realm */
 
-realm_params* create_realm(const char* name);
+realm_params* create_realm(char* name);
+realm_params* get_realm(char* name);
+realm_params* get_realm_by_origin(char *origin);
 
 /* engine handling */
 
@@ -230,7 +229,7 @@ ioa_engine_handle create_ioa_engine(super_memory_t *sm,
 				struct event_base *eb, turnipports* tp,
 				const s08bits* relay_if,
 				size_t relays_number, s08bits **relay_addrs, int default_relays,
-				int verbose, band_limit_t max_bps);
+				int verbose);
 
 void set_ssl_ctx(ioa_engine_handle e,
 		SSL_CTX *tls_ctx_ssl23,

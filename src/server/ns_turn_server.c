@@ -645,7 +645,7 @@ static ts_ur_super_session* create_new_ss(turn_turnserver* server) {
 	ns_bzero(ss,sizeof(ts_ur_super_session));
 	ss->server = server;
 	ss->shatype = server->shatype;
-	ss->realm = get_realm(NULL);
+	ss->realm = get_default_realm();
 	put_session_into_map(ss);
 	init_allocation(ss,&(ss->alloc), server->tcp_relay_connections);
 	return ss;
@@ -3062,9 +3062,10 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 				if(sar) {
 					int sarlen = stun_attr_get_len(sar);
 					if(sarlen>0) {
+						//TODO
 						char origin[513];
 						strncpy(origin,(char*)stun_attr_get_value(sar),(size_t)sarlen);
-						ss->realm = get_realm_by_origin(origin);
+						ss->realm = get_default_realm();
 					}
 				}
 				ss->realm_set = 1;

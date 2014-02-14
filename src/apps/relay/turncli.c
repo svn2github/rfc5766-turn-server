@@ -780,7 +780,7 @@ static void cli_print_configuration(struct cli_session* cs)
 		cli_print_uint(cs,(unsigned long)get_realm(NULL)->options.total_quota,"total-quota",2);
 		cli_print_uint(cs,(unsigned long)get_realm(NULL)->options.user_quota,"user-quota",2);
 		cli_print_uint(cs,(unsigned long)get_realm(NULL)->status.total_current_allocs,"total-current-allocs",0);
-		cli_print_uint(cs,(unsigned long)turn_params.max_bps,"max-bps",0);
+		cli_print_uint(cs,(unsigned long)get_realm(NULL)->options.max_bps,"max-bps",0);
 
 		myprintf(cs,"\n");
 

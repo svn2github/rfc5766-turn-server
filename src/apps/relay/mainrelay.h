@@ -255,8 +255,6 @@ typedef struct _turn_params_ {
 
 //////////////// Relay servers /////////////
 
-  band_limit_t max_bps;
-
   u16bits min_port;
   u16bits max_port;
 
