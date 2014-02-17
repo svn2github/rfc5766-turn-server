@@ -76,8 +76,8 @@
 
 //////////// REALM //////////////
 
-static int default_realm_params_created = 0;
-static realm_params default_realm_params =
+static realm_params *default_realm_params_ptr = NULL;
+static const realm_params _default_realm_params =
 {
   1,
   {
@@ -95,23 +95,25 @@ realm_params* create_realm(char* name)
 	realm_params *ret = NULL;
 
 	if((name == NULL)||(name[0]==0)) {
-		ret = &(default_realm_params);
-		if(default_realm_params_created)
+		ret = default_realm_params_ptr;
+		if(ret) {
 			return ret;
-		default_realm_params.is_default_realm = 1;
-		default_realm_params.options.ct = TURN_CREDENTIALS_NONE;
-		default_realm_params_created = 1;
+		}
+		default_realm_params_ptr = (realm_params*)malloc(sizeof(realm_params));
+		ns_bcopy(&_default_realm_params,default_realm_params_ptr,sizeof(realm_params));
 		realms = ur_string_map_create(NULL);
+		ret = default_realm_params_ptr;
 	} else {
-		if(default_realm_params_created) {
-			if(!strcmp(name,default_realm_params.options.name))
-				return &(default_realm_params);
+		if(default_realm_params_ptr) {
+			if(!strcmp(name,default_realm_params_ptr->options.name)) {
+				return default_realm_params_ptr;
+			}
 		}
 
 		ur_string_map_value_type value = 0;
 		if (!ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
 			ret = (realm_params*)turn_malloc(sizeof(realm_params));
-			ns_bzero(ret,sizeof(realm_params));
+			ns_bcopy(default_realm_params_ptr,ret,sizeof(realm_params));
 			STRCPY(ret->options.name,name);
 			value = (ur_string_map_value_type)ret;
 			ur_string_map_put(realms, (ur_string_map_key_type) name, value);
@@ -129,13 +131,13 @@ realm_params* create_realm(char* name)
 void get_default_realm_options(realm_options* ro)
 {
 	if(ro)
-		ns_bcopy(&(default_realm_params.options),ro,sizeof(realm_options));
+		ns_bcopy(&(default_realm_params_ptr->options),ro,sizeof(realm_options));
 }
 
 realm_params* get_realm(char* name)
 {
-	if((name == NULL)||(name[0]==0)||(!strcmp(name,default_realm_params.options.name)))
-		return &(default_realm_params);
+	if((name == NULL)||(name[0]==0)||(!strcmp(name,default_realm_params_ptr->options.name)))
+		return default_realm_params_ptr;
 	else {
 	  ur_string_map_value_type value = 0;
 	  if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
@@ -143,7 +145,7 @@ realm_params* get_realm(char* name)
 	  }
 	}
 
-	return &(default_realm_params);
+	return default_realm_params_ptr;
 }
 
 void get_realm_options_by_origin(char *origin, realm_options* ro)
