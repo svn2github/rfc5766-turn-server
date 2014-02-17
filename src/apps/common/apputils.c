@@ -124,7 +124,7 @@ int socket_tcp_set_keepalive(evutil_socket_t fd)
 #ifdef SO_KEEPALIVE
     /* Set the keepalive option active */
     {
-	    const int on = 1;
+	    int on = 1;
 	    setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (const void*)&on, (socklen_t) sizeof(on));
     }
 #else
@@ -133,7 +133,7 @@ int socket_tcp_set_keepalive(evutil_socket_t fd)
 
 #ifdef SO_NOSIGPIPE
     {
-    	 const int on = 1;
+    	 int on = 1;
     	 setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, (const void*)&on, (socklen_t) sizeof(on));
     }
 #endif
@@ -154,16 +154,16 @@ int socket_set_reusable(evutil_socket_t fd, int flag)
 		int use_reuseaddr = 1;
 #endif
 
-#ifdef SO_REUSEPORT
+#if defined(SO_REUSEPORT)
 		if (use_reuseaddr) {
-			const int on = flag;
+			int on = flag;
 			setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, (const void*) &on, (socklen_t) sizeof(on));
 		}
 #endif
 
 #if defined(SO_REUSEADDR)
 		if (use_reuseaddr) {
-			const int on = flag;
+			int on = flag;
 			int ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void*) &on, (socklen_t) sizeof(on));
 			if (ret < 0)
 				perror("SO_REUSEADDR");
