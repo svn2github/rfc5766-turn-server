@@ -2756,7 +2756,6 @@ static int check_stun_auth(turn_turnserver *server,
 			int can_resume)
 {
 	u08bits usname[STUN_MAX_USERNAME_SIZE+1];
-	u08bits realm[STUN_MAX_REALM_SIZE+1];
 	u08bits nonce[STUN_MAX_NONCE_SIZE+1];
 	size_t alen = 0;
 
@@ -2819,9 +2818,18 @@ static int check_stun_auth(turn_turnserver *server,
 			return -1;
 		}
 
+
+		u08bits realm[STUN_MAX_REALM_SIZE+1];
+
 		alen = min((size_t)stun_attr_get_len(sar),sizeof(realm)-1);
 		ns_bcopy(stun_attr_get_value(sar),realm,alen);
 		realm[alen]=0;
+
+		if(strcmp((char*)realm, (char*)(ss->realm_options.name))) {
+			*err_code = 400;
+			*reason = (const u08bits*)"Bad request: the realm value incorrect";
+			return -1;
+		}
 	}
 
 	/* USERNAME ATTR: */
@@ -2876,7 +2884,7 @@ static int check_stun_auth(turn_turnserver *server,
 	if(!(ss->hmackey_set) && (ss->pwd[0] == 0)) {
 		ur_string_map_value_type ukey = NULL;
 		if(can_resume) {
-			ukey = (server->userkeycb)(server->id, usname, resume_processing_after_username_check, in_buffer, ss->id, postpone_reply);
+			ukey = (server->userkeycb)(server->id, ss->realm_options.ct, usname, resume_processing_after_username_check, in_buffer, ss->id, postpone_reply);
 			if(*postpone_reply) {
 				return 0;
 			}

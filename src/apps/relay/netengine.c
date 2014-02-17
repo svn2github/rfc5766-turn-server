@@ -230,7 +230,7 @@ static void auth_server_receive_message(struct bufferevent *bev, void *ptr)
       continue;
     }
     
-    if(get_realm(NULL)->options.ct == TURN_CREDENTIALS_SHORT_TERM) {
+    if(am.ct == TURN_CREDENTIALS_SHORT_TERM) {
       st_password_t pwd;
       if(get_user_pwd(am.username,pwd)<0) {
     	  am.success = 0;

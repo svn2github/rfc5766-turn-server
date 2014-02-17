@@ -1224,13 +1224,14 @@ int get_user_pwd(u08bits *usname, st_password_t pwd)
 	return ret;
 }
 
-u08bits *start_user_check(turnserver_id id, u08bits *usname, get_username_resume_cb resume, ioa_net_data *in_buffer, u64bits ctxkey, int *postpone_reply)
+u08bits *start_user_check(turnserver_id id, turn_credential_type ct, u08bits *usname, get_username_resume_cb resume, ioa_net_data *in_buffer, u64bits ctxkey, int *postpone_reply)
 {
 	*postpone_reply = 1;
 
 	struct auth_message am;
 	ns_bzero(&am,sizeof(struct auth_message));
 	am.id = id;
+	am.ct = ct;
 	STRCPY(am.username,usname);
 	am.resume_func = resume;
 	memcpy(&(am.in_buffer),in_buffer,sizeof(ioa_net_data));

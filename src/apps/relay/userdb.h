@@ -79,6 +79,7 @@ struct _realm_params {
 
 struct auth_message {
 	turnserver_id id;
+	turn_credential_type ct;
 	u08bits username[1025];
 	hmackey_t key;
 	st_password_t pwd;
@@ -158,7 +159,7 @@ void add_to_secrets_list(secrets_list_t *sl, const char* elem);
 
 int get_user_key(u08bits *uname, hmackey_t key, ioa_network_buffer_handle nbh);
 int get_user_pwd(u08bits *uname, st_password_t pwd);
-u08bits *start_user_check(turnserver_id id, u08bits *uname, get_username_resume_cb resume, ioa_net_data *in_buffer, u64bits ctxkey, int *postpone_reply);
+u08bits *start_user_check(turnserver_id id, turn_credential_type ct, u08bits *uname, get_username_resume_cb resume, ioa_net_data *in_buffer, u64bits ctxkey, int *postpone_reply);
 int check_new_allocation_quota(u08bits *username);
 void release_allocation_quota(u08bits *username);
 
