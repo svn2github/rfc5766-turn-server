@@ -50,6 +50,31 @@ extern "C" {
 
 #define AUTH_SECRET_SIZE (512)
 
+//////////// REALM //////////////
+
+struct _realm_status;
+typedef struct _realm_status realm_status;
+
+struct _realm_params;
+typedef struct _realm_params realm_params;
+
+struct _realm_status {
+
+	vint total_current_allocs;
+	ur_string_map *alloc_counters;
+
+};
+
+struct _realm_params {
+
+	int is_default_realm;
+
+	realm_options options;
+
+	realm_status status;
+
+};
+
 //////////// USER DB //////////////////////////////
 
 struct auth_message {

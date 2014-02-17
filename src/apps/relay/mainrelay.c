@@ -1050,7 +1050,7 @@ static void set_option(int c, char *value)
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Option --secret-ts-exp-time deprecated and has no effect.\n");
 		break;
 	case 'r':
-		STRCPY(get_realm(NULL)->name,value);
+		STRCPY(get_realm(NULL)->options.name,value);
 		break;
 	case 'q':
 		get_realm(NULL)->options.user_quota = atoi(value);
@@ -1679,7 +1679,7 @@ int main(int argc, char **argv)
 	if(use_lt_credentials) {
 		if(!turn_params.users_db.ram_db.users_number && (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_FILE) && !get_realm(NULL)->options.use_auth_secret_with_timestamp) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did not specify any user account, (-u option) \n	but you did specified a long-term credentials mechanism option (-a option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
-		} else if(!get_realm(NULL)->name[0]) {
+		} else if(!get_realm(NULL)->options.name[0]) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did specify the long-term credentials usage\n but you did not specify the realm option (-r option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
 		}
 	}

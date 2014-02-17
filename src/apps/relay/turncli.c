@@ -772,8 +772,8 @@ static void cli_print_configuration(struct cli_session* cs)
 		if(get_realm(NULL)->options.use_auth_secret_with_timestamp && turn_params.rest_api_separator)
 			cli_print_uint(cs,turn_params.rest_api_separator,"REST API separator ASCII number",0);
 
-		if(get_realm(NULL)->name[0])
-			cli_print_str(cs,get_realm(NULL)->name,"Realm",0);
+		if(get_realm(NULL)->options.name[0])
+			cli_print_str(cs,get_realm(NULL)->options.name,"Realm",0);
 
 		myprintf(cs,"\n");
 

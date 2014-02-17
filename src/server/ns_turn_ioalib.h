@@ -123,14 +123,8 @@ typedef void (*accept_cb)(ioa_socket_handle s, void *arg);
 
 ////////// REALM ////////////
 
-struct _realm_status;
-typedef struct _realm_status realm_status;
-
 struct _realm_options;
 typedef struct _realm_options realm_options;
-
-struct _realm_params;
-typedef struct _realm_params realm_params;
 
 //////// IP White/black listing ///////////
 
@@ -255,7 +249,8 @@ unsigned char *base64_decode(const char *data,
 
 ///////////// Realm ///////////////////
 
-realm_params* get_default_realm(void);
+void get_default_realm_options(realm_options* ro);
+void get_realm_options_by_origin(char *origin, realm_options* ro);
 
 ///////////////////////////////////////
 

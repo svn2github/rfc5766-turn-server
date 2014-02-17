@@ -51,6 +51,7 @@
 
 #include "apputils.h"
 #include "stun_buffer.h"
+#include "userdb.h"
 
 #include "ns_sm.h"
 
@@ -221,7 +222,6 @@ typedef struct _timer_event
 
 realm_params* create_realm(char* name);
 realm_params* get_realm(char* name);
-realm_params* get_realm_by_origin(char *origin);
 
 /* engine handling */
 

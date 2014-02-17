@@ -51,45 +51,6 @@ typedef struct _turn_server_addrs_list turn_server_addrs_list_t;
 
 void init_turn_server_addrs_list(turn_server_addrs_list_t *l);
 
-//////// "variable" ints ///////////////////
-
-typedef int vint;
-
-typedef vint* vintp;
-
-typedef unsigned long band_limit_t;
-
-////////// REALM ////////////
-
-struct _realm_status {
-
-	vint total_current_allocs;
-	ur_string_map *alloc_counters;
-
-};
-
-struct _realm_options {
-
-	turn_credential_type ct;
-	int use_auth_secret_with_timestamp;
-
-	vint total_quota;
-	vint user_quota;
-
-	band_limit_t max_bps;
-};
-
-struct _realm_params {
-
-	s08bits name[STUN_MAX_REALM_SIZE + 1];
-	int is_default_realm;
-
-	realm_options options;
-
-	realm_status status;
-
-};
-
 ////////// RFC 5780 ///////////////////////
 
 typedef int (*get_alt_addr_cb)(ioa_addr *addr, ioa_addr *alt_addr);
