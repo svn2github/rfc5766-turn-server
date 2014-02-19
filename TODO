@@ -29,6 +29,8 @@
 
 1) Exclusive IP addresses for relay
 
+2) Add/remove Ip addresses, dynamically.
+
 ==================================================================
 
 ###   IV. PERFORMANCE OPTIMIZATION   ###
@@ -81,6 +83,9 @@ when necessary:
 3) MS TURN, MS STUN extensions.
 
 4) Origin draft.
+	Multi-tenant server.
+
+5) Bandwidth draft.
 
 ==================================================================
 

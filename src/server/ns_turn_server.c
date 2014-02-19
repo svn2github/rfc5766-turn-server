@@ -1746,8 +1746,8 @@ static void tcp_peer_accept_connection(ioa_socket_handle s, void *arg)
 			ioa_network_buffer_set_size(nbh, len);
 		}
 
-		/* We add integrity for both long-term and short-term indication messages */
-		/* if(ss->realm_options.ct == TURN_CREDENTIALS_SHORT_TERM) */
+		/* We add integrity for short-term indication messages, only */
+		if(ss->realm_options.ct == TURN_CREDENTIALS_SHORT_TERM)
 		{
 			adjust_shatype(server,ss);
 			stun_attr_add_integrity_str(ss->realm_options.ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
@@ -4117,8 +4117,8 @@ static void peer_input_handler(ioa_socket_handle s, int event_type,
 					ioa_network_buffer_set_size(nbh, len);
 				}
 
-				/* We add integrity for both long-term and short-term indication messages */
-				/* if(ss->realm_options.ct == TURN_CREDENTIALS_SHORT_TERM) */
+				/* We add integrity for short-term indication messages, only*/
+				if(ss->realm_options.ct == TURN_CREDENTIALS_SHORT_TERM)
 				{
 					adjust_shatype(server,ss);
 					stun_attr_add_integrity_str(ss->realm_options.ct,ioa_network_buffer_data(nbh),&len,ss->hmackey,ss->pwd,ss->shatype);
