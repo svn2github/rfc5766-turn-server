@@ -148,6 +148,19 @@ realm_params* get_realm(char* name)
 	return default_realm_params_ptr;
 }
 
+void get_realm_params(char* name, realm_params *rp)
+{
+	if((name != NULL)&&name[0]&&strcmp(name,default_realm_params_ptr->options.name)) {
+	  ur_string_map_value_type value = 0;
+	  if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
+		  ns_bcopy(value,rp,sizeof(realm_params));
+		  return;
+	  }
+	}
+
+	ns_bcopy(default_realm_params_ptr,rp,sizeof(realm_params));
+}
+
 void get_realm_options_by_origin(char *origin, realm_options* ro)
 {
 	//TODO

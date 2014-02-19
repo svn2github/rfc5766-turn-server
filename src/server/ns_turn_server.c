@@ -368,6 +368,7 @@ int turn_session_info_copy_from(struct turn_session_info* tsi, ts_ur_super_sessi
 			tsi->shatype = ss->shatype;
 			STRCPY(tsi->tls_method, get_ioa_socket_tls_method(ss->client_session.s));
 			STRCPY(tsi->tls_cipher, get_ioa_socket_tls_cipher(ss->client_session.s));
+			STRCPY(tsi->realm, ss->realm_options.name);
 
 			if(ss->t_received_packets > ss->received_packets)
 				tsi->received_packets = ss->t_received_packets;

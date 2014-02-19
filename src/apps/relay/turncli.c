@@ -91,6 +91,8 @@ struct cli_session {
 	ioa_addr addr;
 	telnet_t *ts;
 	FILE* f;
+	char realm[STUN_MAX_REALM_SIZE+1];
+	realm_params *rp;
 };
 
 ///////////////////////////////
@@ -107,6 +109,10 @@ static const char *CLI_HELP_STR[] =
    "",
    "  pc - print configuration",
    "",
+   "  sr <realm> - set CLI session realm",
+   "",
+   "  ur - unset CLI session realm",
+   "",
    "  tc <param-name> - toggle a configuration parameter",
    "     (see pc command output for togglable param names)",
    "",
@@ -115,7 +121,7 @@ static const char *CLI_HELP_STR[] =
    "",
    "  ps [username] - print sessions, with optional exact user match",
    "",
-   "  psp usernamestr - print sessions, with partial user string match",
+   "  psp <usernamestr> - print sessions, with partial user string match",
    "",
    "  psd <file-name> - dump ps command output into file on the TURN server system",
    "",
@@ -362,11 +368,11 @@ static void change_cli_param(struct cli_session* cs, const char* pn)
 					*(ccmds[i].data) = (vint)pnv;
 					cli_print_uint(cs,(unsigned long)(*(ccmds[i].data)),ccmds[i].cmd,2);
 				} else if(strcmp(ccmds[i].cmd,"total-quota")==0) {
-					get_realm(NULL)->options.total_quota = pnv;
-					cli_print_uint(cs,(unsigned long)(get_realm(NULL)->options.total_quota),ccmds[i].cmd,2);
+					cs->rp->options.total_quota = pnv;
+					cli_print_uint(cs,(unsigned long)(cs->rp->options.total_quota),ccmds[i].cmd,2);
 				} else if(strcmp(ccmds[i].cmd,"user-quota")==0) {
-					get_realm(NULL)->options.user_quota = pnv;
-					cli_print_uint(cs,(unsigned long)(get_realm(NULL)->options.user_quota),ccmds[i].cmd,2);
+					cs->rp->options.user_quota = pnv;
+					cli_print_uint(cs,(unsigned long)(cs->rp->options.user_quota),ccmds[i].cmd,2);
 				}
 				return;
 			}
@@ -428,6 +434,9 @@ static int print_session(ur_map_key_type key, ur_map_value_type value, void *arg
 		struct cli_session* cs = csarg->cs;
 		struct turn_session_info *tsi = (struct turn_session_info *)value;
 
+		if(cs->realm[0] && strcmp(cs->realm,tsi->realm))
+			return 0;
+
 		if(csarg->users) {
 			ur_string_map_value_type value;
 			if(!ur_string_map_get(csarg->users, (ur_string_map_key_type)(char*)tsi->username, &value)) {
@@ -478,6 +487,8 @@ static int print_session(ur_map_key_type key, ur_map_value_type value, void *arg
 								(unsigned long)(csarg->counter+1),
 								(unsigned long long)tsi->id,
 								tsi->username);
+				if(tsi->realm[0])
+					myprintf(cs,"      realm: %s\n",tsi->realm);
 				if(turn_time_before(csarg->ct, tsi->start_time)) {
 					myprintf(cs,"      started: undefined time\n");
 				} else {
@@ -762,25 +773,27 @@ static void cli_print_configuration(struct cli_session* cs)
 
 		myprintf(cs,"\n");
 
-		if(get_realm(NULL)->options.ct == TURN_CREDENTIALS_LONG_TERM)
+
+		if(get_realm(NULL)->options.name[0])
+			cli_print_str(cs,get_realm(NULL)->options.name,"Default realm",0);
+		if(cs->realm[0])
+			cli_print_str(cs,cs->realm,"CLI session realm",0);
+		if(cs->rp->options.ct == TURN_CREDENTIALS_LONG_TERM)
 			cli_print_flag(cs,1,"Long-term authorization mechanism",0);
-		else if(get_realm(NULL)->options.ct == TURN_CREDENTIALS_SHORT_TERM)
+		else if(cs->rp->options.ct == TURN_CREDENTIALS_SHORT_TERM)
 			cli_print_flag(cs,1,"Short-term authorization mechanism",0);
 		else
 			cli_print_flag(cs,1,"Anonymous credentials",0);
-		cli_print_flag(cs,get_realm(NULL)->options.use_auth_secret_with_timestamp,"REST API support",0);
-		if(get_realm(NULL)->options.use_auth_secret_with_timestamp && turn_params.rest_api_separator)
+		cli_print_flag(cs,cs->rp->options.use_auth_secret_with_timestamp,"REST API support",0);
+		if(cs->rp->options.use_auth_secret_with_timestamp && turn_params.rest_api_separator)
 			cli_print_uint(cs,turn_params.rest_api_separator,"REST API separator ASCII number",0);
-
-		if(get_realm(NULL)->options.name[0])
-			cli_print_str(cs,get_realm(NULL)->options.name,"Realm",0);
 
 		myprintf(cs,"\n");
 
-		cli_print_uint(cs,(unsigned long)get_realm(NULL)->options.total_quota,"total-quota",2);
-		cli_print_uint(cs,(unsigned long)get_realm(NULL)->options.user_quota,"user-quota",2);
-		cli_print_uint(cs,(unsigned long)get_realm(NULL)->status.total_current_allocs,"total-current-allocs",0);
-		cli_print_uint(cs,(unsigned long)get_realm(NULL)->options.max_bps,"max-bps",0);
+		cli_print_uint(cs,(unsigned long)cs->rp->options.total_quota,"total-quota",2);
+		cli_print_uint(cs,(unsigned long)cs->rp->options.user_quota,"user-quota",2);
+		cli_print_uint(cs,(unsigned long)cs->rp->status.total_current_allocs,"total-current-allocs",0);
+		cli_print_uint(cs,(unsigned long)cs->rp->options.max_bps,"max-bps",0);
 
 		myprintf(cs,"\n");
 
@@ -938,6 +951,13 @@ static int run_cli_input(struct cli_session* cs, const char *buf0, unsigned int 
 				type_cli_cursor(cs);
 			} else if(strstr(cmd,"tc ") == cmd) {
 				toggle_cli_param(cs,cmd+3);
+			} else if(strstr(cmd,"sr ") == cmd) {
+				STRCPY(cs->realm,cmd+3);
+				cs->rp = get_realm(cs->realm);
+				type_cli_cursor(cs);
+			} else if(strcmp(cmd,"ur") == 0) {
+				cs->realm[0]=0;
+				cs->rp = get_realm(NULL);
 				type_cli_cursor(cs);
 			} else if(strstr(cmd,"tc") == cmd) {
 				toggle_cli_param(cs,cmd+2);
@@ -1084,6 +1104,8 @@ static void cliserver_input_handler(struct evconnlistener *l, evutil_socket_t fd
 
 	struct cli_session *clisession = (struct cli_session*)turn_malloc(sizeof(struct cli_session));
 	ns_bzero(clisession,sizeof(struct cli_session));
+
+	clisession->rp = get_realm(NULL);
 
 	set_socket_options_fd(fd, 1, sa->sa_family);
 

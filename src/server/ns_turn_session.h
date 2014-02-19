@@ -135,7 +135,7 @@ struct turn_session_info {
 	u64bits sent_bytes;
 	u32bits received_rate;
 	u32bits sent_rate;
-    u32bits total_rate;
+	u32bits total_rate;
 /* Mobile */
 	int is_mobile;
 /* Peers */
@@ -143,6 +143,8 @@ struct turn_session_info {
 	size_t main_peers_size;
 	addr_data *extra_peers_data;
 	size_t extra_peers_size;
+/* Realm */
+	char realm[STUN_MAX_REALM_SIZE+1];
 };
 
 void turn_session_info_init(struct turn_session_info* tsi);
