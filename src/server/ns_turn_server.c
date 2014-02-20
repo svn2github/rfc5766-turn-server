@@ -547,8 +547,8 @@ static mobile_id_t get_new_mobile_id(turn_turnserver* server)
 		sid = sid<<56;
 		do {
 			while (!newid) {
-				newid = (mobile_id_t)random();
-				newid = (newid<<32) + (mobile_id_t)random();
+				newid = (mobile_id_t)turn_random();
+				newid = (newid<<32) + (mobile_id_t)turn_random();
 				if(!newid) {
 					continue;
 				}
@@ -1763,21 +1763,6 @@ static void tcp_peer_accept_connection(ioa_socket_handle s, void *arg)
 
 		write_client_connection(server, ss, nbh, TTL_IGNORE, TOS_IGNORE);
 
-		/* test */
-		if(0) {
-			int i = 0;
-			for(i=0;i<22;i++) {
-				ioa_network_buffer_handle nbh_test = ioa_network_buffer_allocate(server->e);
-				size_t len_test = ioa_network_buffer_get_size(nbh_test);
-				u08bits *data = ioa_network_buffer_data(nbh_test);
-				const char* data_test="111.222.222.222.222";
-				len_test = strlen(data_test);
-				ns_bcopy(data_test,data,len_test);
-				ioa_network_buffer_set_size(nbh_test,len_test);
-				send_data_from_ioa_socket_nbh(tc->peer_s, NULL, nbh_test, TTL_IGNORE, TOS_IGNORE);
-			}
-		}
-
 		FUNCEND;
 	}
 }
@@ -2769,7 +2754,7 @@ static int check_stun_auth(turn_turnserver *server,
 		int i = 0;
 		for(i=0;i<NONCE_LENGTH_32BITS;i++) {
 			u08bits *s = ss->nonce + 4*i;
-			u32bits rand=(u32bits)random();
+			u32bits rand=(u32bits)turn_random();
 			snprintf((s08bits*)s, NONCE_MAX_SIZE-4*i, "%04x",(unsigned int)rand);
 		}
 		ss->nonce_expiration_time = server->ctime + STUN_NONCE_EXPIRATION_TIME;
@@ -2781,7 +2766,7 @@ static int check_stun_auth(turn_turnserver *server,
 			int i = 0;
 			for(i=0;i<NONCE_LENGTH_32BITS;i++) {
 				u08bits *s = ss->nonce + 4*i;
-				u32bits rand=(u32bits)random();
+				u32bits rand=(u32bits)turn_random();
 				snprintf((s08bits*)s, NONCE_MAX_SIZE-4*i, "%04x",(unsigned int)rand);
 			}
 			ss->nonce_expiration_time = server->ctime + STUN_NONCE_EXPIRATION_TIME;
@@ -2869,8 +2854,8 @@ static int check_stun_auth(turn_turnserver *server,
 		/* Stale Nonce check: */
 
 		if(new_nonce) {
-			*err_code = 401;
-			*reason = (const u08bits*)"Unauthorized";
+			*err_code = 438;
+			*reason = (const u08bits*)"Wrong nonce";
 			return create_challenge_response(ss,tid,resp_constructed,err_code,reason,nbh,method);
 		}
 

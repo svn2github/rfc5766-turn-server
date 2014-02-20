@@ -682,9 +682,22 @@ void ignore_sigpipe(void)
 	}
 }
 
+static u64bits turn_getRandTime(void) {
+  struct timespec tp={0,0};
+#if defined(CLOCK_REALTIME)
+  clock_gettime(CLOCK_REALTIME, &tp);
+#else
+  tp.tv_sec = time(NULL);
+#endif
+  u64bits current_time = (u64bits)(tp.tv_sec);
+  u64bits current_mstime = (u64bits)(current_time + (tp.tv_nsec));
+
+  return current_mstime;
+}
+
 unsigned long set_system_parameters(int max_resources)
 {
-	srandom((unsigned int) time(NULL));
+	srandom((unsigned int) (turn_getRandTime() + (int)(&turn_getRandTime)));
 	setlocale(LC_ALL, "C");
 
 	build_base64_decoding_table();
