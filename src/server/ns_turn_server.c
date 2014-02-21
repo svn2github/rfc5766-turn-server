@@ -2988,16 +2988,28 @@ static void set_alternate_server(turn_server_addrs_list_t *asl, const ioa_addr *
 	}
 }
 
-#define log_method(username, method, err_code) \
+#define log_method(ss, method, err_code) \
 {\
   if(!(err_code)) {\
-    TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
-		  "user <%s>: incoming packet " method " processed, success\n",\
-		  (const char*)(username));\
+	  if(ss->origin[0]) {\
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
+					"origin <%s> realm <%s> user <%s>: incoming packet " method " processed, success\n",\
+					(const char*)(ss->origin),(const char*)(ss->realm_options.name),(const char*)(ss->username));\
+		} else {\
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
+					"realm <%s> user <%s>: incoming packet " method " processed, success\n",\
+					(const char*)(ss->realm_options.name),(const char*)(ss->username));\
+		}\
   } else {\
-    TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
-		  "user <%s>: incoming packet " method " processed, error %d\n",\
-		  (username), (err_code));\
+	  if(ss->origin[0]) {\
+		  TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
+		  "origin <%s> realm <%s> user <%s>: incoming packet " method " processed, error %d\n",\
+		  (const char*)(ss->origin),(const char*)(ss->realm_options.name),(const char*)(ss->username), (err_code));\
+	  } else {\
+		  TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
+		  "realm <%s> user <%s>: incoming packet " method " processed, error %d\n",\
+		  (const char*)(ss->realm_options.name),(const char*)(ss->username), (err_code));\
+	  }\
   }\
 }
 
@@ -3101,7 +3113,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 							unknown_attrs, &ua_num, in_buffer, nbh);
 
 				if(server->verbose) {
-				  log_method(ss->username, "ALLOCATE", err_code);
+				  log_method(ss, "ALLOCATE", err_code);
 				}
 
 				break;
@@ -3113,7 +3125,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 							unknown_attrs, &ua_num, in_buffer);
 
 				if(server->verbose) {
-				  log_method(ss->username, "CONNECT", err_code);
+				  log_method(ss, "CONNECT", err_code);
 				}
 
 				if(!err_code)
@@ -3127,7 +3139,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 								unknown_attrs, &ua_num, in_buffer, nbh, message_integrity);
 
 				if(server->verbose) {
-				  log_method(ss->username, "CONNECTION_BIND", err_code);
+				  log_method(ss, "CONNECTION_BIND", err_code);
 				}
 
 				break;
@@ -3139,7 +3151,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 								&no_response, can_resume);
 
 				if(server->verbose) {
-				  log_method(ss->username, "REFRESH", err_code);
+				  log_method(ss, "REFRESH", err_code);
 				}
 				break;
 
@@ -3149,7 +3161,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 								unknown_attrs, &ua_num, in_buffer, nbh);
 
 				if(server->verbose) {
-				  log_method(ss->username, "CHANNEL_BIND", err_code);
+				  log_method(ss, "CHANNEL_BIND", err_code);
 				}
 				break;
 
@@ -3159,7 +3171,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 								unknown_attrs, &ua_num, in_buffer, nbh);
 
 				if(server->verbose) {
-				  log_method(ss->username, "CREATE_PERMISSION", err_code);
+				  log_method(ss, "CREATE_PERMISSION", err_code);
 				}
 				break;
 
@@ -3178,7 +3190,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 							0, 0);
 
 				if(server->verbose) {
-				  log_method(ss->username, "BINDING", err_code);
+				  log_method(ss, "BINDING", err_code);
 				}
 
 				if(*resp_constructed && !err_code && (origin_changed || dest_changed)) {
@@ -3230,7 +3242,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 				handle_turn_send(server, ss, &err_code, &reason, unknown_attrs, &ua_num, in_buffer);
 
 				if(eve(server->verbose)) {
-				  log_method(ss->username, "SEND", err_code);
+				  log_method(ss, "SEND", err_code);
 				}
 
 				break;
@@ -3240,7 +3252,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 				err_code = 403;
 
 				if(eve(server->verbose)) {
-				  log_method(ss->username, "DATA", err_code);
+				  log_method(ss, "DATA", err_code);
 				}
 
 				break;
@@ -3309,7 +3321,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 
 		if(err_code) {
 			if(server->verbose) {
-			  log_method(ss->username, "message", err_code);
+			  log_method(ss, "message", err_code);
 			}
 		}
 
@@ -3365,7 +3377,7 @@ static int handle_old_stun_command(turn_turnserver *server, ts_ur_super_session 
 						cookie,1);
 
 			if(server->verbose) {
-			  log_method(ss->username, "OLD BINDING", err_code);
+			  log_method(ss, "OLD BINDING", err_code);
 			}
 
 			if(*resp_constructed && !err_code && (origin_changed || dest_changed)) {
@@ -3439,7 +3451,7 @@ static int handle_old_stun_command(turn_turnserver *server, ts_ur_super_session 
 
 		if(err_code) {
 			if(server->verbose) {
-			  log_method(ss->username, "OLD STUN message", err_code);
+			  log_method(ss, "OLD STUN message", err_code);
 			}
 		}
 
@@ -3508,7 +3520,8 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 		}
 
 		if (server->verbose) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (mobile pattern), user <%s>\n",(char*)ss->username);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (mobile pattern), user <%s> realm <%s> origin <%s>\n",
+					(char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin);
 		}
 
 		FUNCEND;
@@ -3553,7 +3566,8 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 	}
 
 	if (server->verbose) {
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (non-mobile pattern), user <%s>\n",(char*)ss->username);
+		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (non-mobile pattern), user <%s> realm <%s> origin <%s>\n",
+					(char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin);
 	}
 
 	turn_server_remove_all_from_ur_map_ss(ss);
