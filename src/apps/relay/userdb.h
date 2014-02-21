@@ -136,14 +136,21 @@ typedef struct _ram_users_db_t {
 	secrets_list_t static_auth_secrets;
 } ram_users_db_t;
 
-typedef struct _users_db_t
-{
+typedef struct _persistent_users_db_t {
+
 	TURN_USERDB_TYPE userdb_type;
 	char userdb[TURN_LONG_STRING_SIZE];
+	void *connection;
+
+} persistent_users_db_t;
+
+typedef struct _default_users_db_t
+{
+	persistent_users_db_t persistent_users_db;
 
 	ram_users_db_t ram_db;
 
-} users_db_t;
+} default_users_db_t;
 
 /////////////////////////////////////////////
 

@@ -305,7 +305,7 @@ typedef struct _turn_params_ {
 
 /////// Users DB ///////////
 
-  users_db_t users_db;
+  default_users_db_t default_users_db;
 
 } turn_params_t;
 

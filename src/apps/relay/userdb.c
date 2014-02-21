@@ -249,7 +249,7 @@ static int convert_string_key_to_binary(char* keysource, hmackey_t key) {
 static int is_pqsql_userdb(void)
 {
 #if !defined(TURN_NO_PQ)
-	return (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_PQ);
+	return (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_PQ);
 #else
 	return 0;
 #endif
@@ -258,7 +258,7 @@ static int is_pqsql_userdb(void)
 static int is_mysql_userdb(void)
 {
 #if !defined(TURN_NO_MYSQL)
-	return (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_MYSQL);
+	return (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_MYSQL);
 #else
 	return 0;
 #endif
@@ -267,16 +267,15 @@ static int is_mysql_userdb(void)
 static int is_redis_userdb(void)
 {
 #if !defined(TURN_NO_HIREDIS)
-	return (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_REDIS);
+	return (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_REDIS);
 #else
 	return 0;
 #endif
 }
 
 #if !defined(TURN_NO_PQ)
-static PGconn *get_pqdb_connection(void)
+static PGconn *get_pqdb_connection_func(PGconn *pqdbconnection)
 {
-	static PGconn *pqdbconnection = NULL;
 	if(pqdbconnection) {
 		ConnStatusType status = PQstatus(pqdbconnection);
 		if(status != CONNECTION_OK) {
@@ -286,35 +285,42 @@ static PGconn *get_pqdb_connection(void)
 	}
 	if(!pqdbconnection && is_pqsql_userdb()) {
 		char *errmsg=NULL;
-		PQconninfoOption *co = PQconninfoParse(turn_params.users_db.userdb, &errmsg);
+		PQconninfoOption *co = PQconninfoParse(turn_params.default_users_db.persistent_users_db.userdb, &errmsg);
 		if(!co) {
 			if(errmsg) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection <%s>, connection string format error: %s\n",turn_params.users_db.userdb,errmsg);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection <%s>, connection string format error: %s\n",turn_params.default_users_db.persistent_users_db.userdb,errmsg);
 				turn_free(errmsg,strlen(errmsg)+1);
 			} else {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, unknown connection string format error\n",turn_params.users_db.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, unknown connection string format error\n",turn_params.default_users_db.persistent_users_db.userdb);
 			}
 		} else {
 			PQconninfoFree(co);
 			if(errmsg)
 				turn_free(errmsg,strlen(errmsg)+1);
-			pqdbconnection = PQconnectdb(turn_params.users_db.userdb);
+			pqdbconnection = PQconnectdb(turn_params.default_users_db.persistent_users_db.userdb);
 			if(!pqdbconnection) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.users_db.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.default_users_db.persistent_users_db.userdb);
 			} else {
 				ConnStatusType status = PQstatus(pqdbconnection);
 				if(status != CONNECTION_OK) {
 					PQfinish(pqdbconnection);
 					pqdbconnection = NULL;
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.default_users_db.persistent_users_db.userdb);
 				} else if(!donot_print_connection_success){
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "PostgreSQL DB connection success: %s\n",turn_params.users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "PostgreSQL DB connection success: %s\n",turn_params.default_users_db.persistent_users_db.userdb);
 				}
 			}
 		}
 	}
 	return pqdbconnection;
 }
+
+static PGconn *get_pqdb_connection(void)
+{
+	turn_params.default_users_db.persistent_users_db.connection = get_pqdb_connection_func((PGconn *)(turn_params.default_users_db.persistent_users_db.connection));
+	return (PGconn *)turn_params.default_users_db.persistent_users_db.connection;
+}
+
 #endif
 
 #if !defined(TURN_NO_MYSQL)
@@ -435,10 +441,8 @@ static Myconninfo *MyconninfoParse(char *userdb, char **errmsg)
 	return co;
 }
 
-static MYSQL *get_mydb_connection(void)
+static MYSQL *get_mydb_connection_func(MYSQL *mydbconnection)
 {
-	static MYSQL *mydbconnection = NULL;
-
 	if(mydbconnection) {
 		if(mysql_ping(mydbconnection)) {
 			mysql_close(mydbconnection);
@@ -448,20 +452,20 @@ static MYSQL *get_mydb_connection(void)
 
 	if(!mydbconnection && is_mysql_userdb()) {
 		char *errmsg=NULL;
-		Myconninfo *co=MyconninfoParse(turn_params.users_db.userdb, &errmsg);
+		Myconninfo *co=MyconninfoParse(turn_params.default_users_db.persistent_users_db.userdb, &errmsg);
 		if(!co) {
 			if(errmsg) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.users_db.userdb,errmsg);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.default_users_db.persistent_users_db.userdb,errmsg);
 				turn_free(errmsg,strlen(errmsg)+1);
 			} else {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error\n",turn_params.users_db.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error\n",turn_params.default_users_db.persistent_users_db.userdb);
 			}
 		} else if(errmsg) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.users_db.userdb,errmsg);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.default_users_db.persistent_users_db.userdb,errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
 			MyconninfoFree(co);
 		} else if(!(co->dbname)) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "MySQL Database name is not provided: <%s>\n",turn_params.users_db.userdb);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "MySQL Database name is not provided: <%s>\n",turn_params.default_users_db.persistent_users_db.userdb);
 			MyconninfoFree(co);
 		} else {
 			mydbconnection = mysql_init(NULL);
@@ -472,7 +476,7 @@ static MYSQL *get_mydb_connection(void)
 					mysql_options(mydbconnection,MYSQL_OPT_CONNECT_TIMEOUT,&(co->connect_timeout));
 				MYSQL *conn = mysql_real_connect(mydbconnection, co->host, co->user, co->password, co->dbname, co->port, NULL, CLIENT_IGNORE_SIGPIPE);
 				if(!conn) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection: <%s>, runtime error\n",turn_params.users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection: <%s>, runtime error\n",turn_params.default_users_db.persistent_users_db.userdb);
 					mysql_close(mydbconnection);
 					mydbconnection=NULL;
 				} else if(mysql_select_db(mydbconnection, co->dbname)) {
@@ -480,7 +484,7 @@ static MYSQL *get_mydb_connection(void)
 					mysql_close(mydbconnection);
 					mydbconnection=NULL;
 				} else if(!donot_print_connection_success) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "MySQL DB connection success: %s\n",turn_params.users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "MySQL DB connection success: %s\n",turn_params.default_users_db.persistent_users_db.userdb);
 				}
 			}
 			MyconninfoFree(co);
@@ -488,6 +492,13 @@ static MYSQL *get_mydb_connection(void)
 	}
 	return mydbconnection;
 }
+
+static MYSQL *get_mydb_connection(void)
+{
+	turn_params.default_users_db.persistent_users_db.connection = get_mydb_connection_func((MYSQL *)(turn_params.default_users_db.persistent_users_db.connection));
+	return (MYSQL *)turn_params.default_users_db.persistent_users_db.connection;
+}
+
 #endif
 
 
@@ -620,13 +631,13 @@ redis_context_handle get_redis_async_connection(struct event_base *base, char* c
 	Ryconninfo *co = RyconninfoParse(connection_string, &errmsg);
 	if (!co) {
 		if (errmsg) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.users_db.userdb, errmsg);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_users_db.persistent_users_db.userdb, errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
 		} else {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.users_db.userdb);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.default_users_db.persistent_users_db.userdb);
 		}
 	} else if (errmsg) {
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.users_db.userdb, errmsg);
+		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_users_db.persistent_users_db.userdb, errmsg);
 		turn_free(errmsg,strlen(errmsg)+1);
 		RyconninfoFree(co);
 	} else {
@@ -646,23 +657,21 @@ redis_context_handle get_redis_async_connection(struct event_base *base, char* c
 	return ret;
 }
 
-static redisContext *get_redis_connection(void)
+static redisContext *get_redis_connection_func(redisContext *redisconnection)
 {
-	static redisContext *redisconnection = NULL;
-
 	if (!redisconnection && is_redis_userdb()) {
 
 		char *errmsg = NULL;
-		Ryconninfo *co = RyconninfoParse(turn_params.users_db.userdb, &errmsg);
+		Ryconninfo *co = RyconninfoParse(turn_params.default_users_db.persistent_users_db.userdb, &errmsg);
 		if (!co) {
 			if (errmsg) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.users_db.userdb, errmsg);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_users_db.persistent_users_db.userdb, errmsg);
 				turn_free(errmsg,strlen(errmsg)+1);
 			} else {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.users_db.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.default_users_db.persistent_users_db.userdb);
 			}
 		} else if (errmsg) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.users_db.userdb, errmsg);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_users_db.persistent_users_db.userdb, errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
 			RyconninfoFree(co);
 		} else {
@@ -695,13 +704,19 @@ static redisContext *get_redis_connection(void)
 					turnFreeRedisReply(redisCommand(redisconnection, "select %s", co->dbname));
 				}
 				if (!donot_print_connection_success) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB sync connection success: %s\n", turn_params.users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB sync connection success: %s\n", turn_params.default_users_db.persistent_users_db.userdb);
 				}
 			}
 			RyconninfoFree(co);
 		}
 	}
 	return redisconnection;
+}
+
+static redisContext *get_redis_connection(void)
+{
+	turn_params.default_users_db.persistent_users_db.connection = get_redis_connection_func((redisContext *)(turn_params.default_users_db.persistent_users_db.connection));
+	return (redisContext *)turn_params.default_users_db.persistent_users_db.connection;
 }
 
 #endif
@@ -712,10 +727,10 @@ static int get_auth_secrets(secrets_list_t *sl)
 
 	clean_secrets_list(sl);
 
-	if(get_secrets_list_size(&turn_params.users_db.ram_db.static_auth_secrets)) {
+	if(get_secrets_list_size(&turn_params.default_users_db.ram_db.static_auth_secrets)) {
 		size_t i = 0;
-		for(i=0;i<get_secrets_list_size(&turn_params.users_db.ram_db.static_auth_secrets);++i) {
-			add_to_secrets_list(sl,get_secrets_list_elem(&turn_params.users_db.ram_db.static_auth_secrets,i));
+		for(i=0;i<get_secrets_list_size(&turn_params.default_users_db.ram_db.static_auth_secrets);++i) {
+			add_to_secrets_list(sl,get_secrets_list_elem(&turn_params.default_users_db.ram_db.static_auth_secrets,i));
 		}
 		ret=0;
 	}
@@ -1004,17 +1019,17 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 	}
 
 	ur_string_map_value_type ukey = NULL;
-	ur_string_map_lock(turn_params.users_db.ram_db.static_accounts);
-	if(ur_string_map_get(turn_params.users_db.ram_db.static_accounts, (ur_string_map_key_type)usname, &ukey)) {
+	ur_string_map_lock(turn_params.default_users_db.ram_db.static_accounts);
+	if(ur_string_map_get(turn_params.default_users_db.ram_db.static_accounts, (ur_string_map_key_type)usname, &ukey)) {
 		ret = 0;
 	} else {
-		ur_string_map_lock(turn_params.users_db.ram_db.dynamic_accounts);
-		if(ur_string_map_get(turn_params.users_db.ram_db.dynamic_accounts, (ur_string_map_key_type)usname, &ukey)) {
+		ur_string_map_lock(turn_params.default_users_db.ram_db.dynamic_accounts);
+		if(ur_string_map_get(turn_params.default_users_db.ram_db.dynamic_accounts, (ur_string_map_key_type)usname, &ukey)) {
 			ret = 0;
 		}
-		ur_string_map_unlock(turn_params.users_db.ram_db.dynamic_accounts);
+		ur_string_map_unlock(turn_params.default_users_db.ram_db.dynamic_accounts);
 	}
-	ur_string_map_unlock(turn_params.users_db.ram_db.static_accounts);
+	ur_string_map_unlock(turn_params.default_users_db.ram_db.static_accounts);
 
 	if(ret==0) {
 		ns_bcopy(ukey,key,sizeof(hmackey_t));
@@ -1312,7 +1327,7 @@ void read_userdb_file(int to_print)
 	static int first_read = 1;
 	static turn_time_t mtime = 0;
 
-	if(turn_params.users_db.userdb_type != TURN_USERDB_TYPE_FILE)
+	if(turn_params.default_users_db.persistent_users_db.userdb_type != TURN_USERDB_TYPE_FILE)
 		return;
 	if(get_realm(NULL)->options.use_auth_secret_with_timestamp)
 		return;
@@ -1333,7 +1348,7 @@ void read_userdb_file(int to_print)
 	}
 
 	if (!full_path_to_userdb_file)
-		full_path_to_userdb_file = find_config_file(turn_params.users_db.userdb, first_read);
+		full_path_to_userdb_file = find_config_file(turn_params.default_users_db.persistent_users_db.userdb, first_read);
 
 	if (full_path_to_userdb_file)
 		f = fopen(full_path_to_userdb_file, "r");
@@ -1342,9 +1357,9 @@ void read_userdb_file(int to_print)
 
 		char sbuf[LONG_STRING_SIZE];
 
-		ur_string_map_lock(turn_params.users_db.ram_db.dynamic_accounts);
+		ur_string_map_lock(turn_params.default_users_db.ram_db.dynamic_accounts);
 
-		ur_string_map_clean(turn_params.users_db.ram_db.dynamic_accounts);
+		ur_string_map_clean(turn_params.default_users_db.ram_db.dynamic_accounts);
 
 		for (;;) {
 			char *s = fgets(sbuf, sizeof(sbuf) - 1, f);
@@ -1370,12 +1385,12 @@ void read_userdb_file(int to_print)
 			}
 		}
 
-		ur_string_map_unlock(turn_params.users_db.ram_db.dynamic_accounts);
+		ur_string_map_unlock(turn_params.default_users_db.ram_db.dynamic_accounts);
 
 		fclose(f);
 
 	} else if (first_read) {
-	  TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Cannot find userdb file: %s: going without flat file user database.\n", turn_params.users_db.userdb);
+	  TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Cannot find userdb file: %s: going without flat file user database.\n", turn_params.default_users_db.persistent_users_db.userdb);
 	} 
 
 	first_read = 0;
@@ -1411,15 +1426,15 @@ int add_user_account(char *user, int dynamic)
 				stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)get_realm(NULL)->options.name, (u08bits*)s, *key);
 			}
 			if(dynamic) {
-				ur_string_map_lock(turn_params.users_db.ram_db.dynamic_accounts);
-				ur_string_map_put(turn_params.users_db.ram_db.dynamic_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
-				ur_string_map_unlock(turn_params.users_db.ram_db.dynamic_accounts);
+				ur_string_map_lock(turn_params.default_users_db.ram_db.dynamic_accounts);
+				ur_string_map_put(turn_params.default_users_db.ram_db.dynamic_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
+				ur_string_map_unlock(turn_params.default_users_db.ram_db.dynamic_accounts);
 			} else {
-				ur_string_map_lock(turn_params.users_db.ram_db.static_accounts);
-				ur_string_map_put(turn_params.users_db.ram_db.static_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
-				ur_string_map_unlock(turn_params.users_db.ram_db.static_accounts);
+				ur_string_map_lock(turn_params.default_users_db.ram_db.static_accounts);
+				ur_string_map_put(turn_params.default_users_db.ram_db.static_accounts, (ur_string_map_key_type)usname, (ur_string_map_value_type)*key);
+				ur_string_map_unlock(turn_params.default_users_db.ram_db.static_accounts);
 			}
-			turn_params.users_db.ram_db.users_number++;
+			turn_params.default_users_db.ram_db.users_number++;
 			free(usname);
 			return 0;
 		}
@@ -2002,7 +2017,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 #endif
 	} else if(!is_st) {
 
-		char *full_path_to_userdb_file = find_config_file(turn_params.users_db.userdb, 1);
+		char *full_path_to_userdb_file = find_config_file(turn_params.default_users_db.persistent_users_db.userdb, 1);
 		FILE *f = full_path_to_userdb_file ? fopen(full_path_to_userdb_file,"r") : NULL;
 		int found = 0;
 		char us[LONG_STRING_SIZE];
@@ -2015,7 +2030,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		us[sizeof(us)-1]=0;
 
 		if (!f) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "File %s not found, will be created.\n",turn_params.users_db.userdb);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "File %s not found, will be created.\n",turn_params.default_users_db.persistent_users_db.userdb);
 		} else {
 
 			char sarg[LONG_STRING_SIZE];
@@ -2079,7 +2094,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		}
 
 		if(!full_path_to_userdb_file)
-			full_path_to_userdb_file=strdup(turn_params.users_db.userdb);
+			full_path_to_userdb_file=strdup(turn_params.default_users_db.persistent_users_db.userdb);
 
 		size_t dirsz = strlen(full_path_to_userdb_file)+21;
 		char *dir = (char*)turn_malloc(dirsz+1);

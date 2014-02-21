@@ -99,7 +99,7 @@ LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
 /////////////// MISC PARAMS ////////////////
 0,0,0,0,0,SHATYPE_SHA1,':',0,0,
 ///////////// Users DB //////////////
-{TURN_USERDB_TYPE_FILE,"\0", {0,NULL,NULL, {NULL,0}} }
+{ {TURN_USERDB_TYPE_FILE,"\0",NULL}, {0,NULL,NULL, {NULL,0}} }
 
 };
 
@@ -1014,25 +1014,25 @@ static void set_option(int c, char *value)
 		add_user_account(value,0);
 		break;
 	case 'b':
-		STRCPY(turn_params.users_db.userdb, value);
-		turn_params.users_db.userdb_type = TURN_USERDB_TYPE_FILE;
+		STRCPY(turn_params.default_users_db.persistent_users_db.userdb, value);
+		turn_params.default_users_db.persistent_users_db.userdb_type = TURN_USERDB_TYPE_FILE;
 		break;
 #if !defined(TURN_NO_PQ)
 	case 'e':
-		STRCPY(turn_params.users_db.userdb, value);
-		turn_params.users_db.userdb_type = TURN_USERDB_TYPE_PQ;
+		STRCPY(turn_params.default_users_db.persistent_users_db.userdb, value);
+		turn_params.default_users_db.persistent_users_db.userdb_type = TURN_USERDB_TYPE_PQ;
 		break;
 #endif
 #if !defined(TURN_NO_MYSQL)
 	case 'M':
-		STRCPY(turn_params.users_db.userdb, value);
-		turn_params.users_db.userdb_type = TURN_USERDB_TYPE_MYSQL;
+		STRCPY(turn_params.default_users_db.persistent_users_db.userdb, value);
+		turn_params.default_users_db.persistent_users_db.userdb_type = TURN_USERDB_TYPE_MYSQL;
 		break;
 #endif
 #if !defined(TURN_NO_HIREDIS)
 	case 'N':
-		STRCPY(turn_params.users_db.userdb, value);
-		turn_params.users_db.userdb_type = TURN_USERDB_TYPE_REDIS;
+		STRCPY(turn_params.default_users_db.persistent_users_db.userdb, value);
+		turn_params.default_users_db.persistent_users_db.userdb_type = TURN_USERDB_TYPE_REDIS;
 		break;
 	case 'O':
 		STRCPY(turn_params.redis_statsdb, value);
@@ -1043,7 +1043,7 @@ static void set_option(int c, char *value)
 		get_realm(NULL)->options.use_auth_secret_with_timestamp = 1;
 		break;
 	case STATIC_AUTH_SECRET_VAL_OPT:
-		add_to_secrets_list(&turn_params.users_db.ram_db.static_auth_secrets,value);
+		add_to_secrets_list(&turn_params.default_users_db.ram_db.static_auth_secrets,value);
 		get_realm(NULL)->options.use_auth_secret_with_timestamp = 1;
 		break;
 	case AUTH_SECRET_TS_EXP:
@@ -1330,25 +1330,25 @@ static int adminmain(int argc, char **argv)
 			break;
 #endif
 		case 'b':
-		  STRCPY(turn_params.users_db.userdb,optarg);
-		  turn_params.users_db.userdb_type = TURN_USERDB_TYPE_FILE;
+		  STRCPY(turn_params.default_users_db.persistent_users_db.userdb,optarg);
+		  turn_params.default_users_db.persistent_users_db.userdb_type = TURN_USERDB_TYPE_FILE;
 		  break;
 #if !defined(TURN_NO_PQ)
 		case 'e':
-		  STRCPY(turn_params.users_db.userdb,optarg);
-		  turn_params.users_db.userdb_type = TURN_USERDB_TYPE_PQ;
+		  STRCPY(turn_params.default_users_db.persistent_users_db.userdb,optarg);
+		  turn_params.default_users_db.persistent_users_db.userdb_type = TURN_USERDB_TYPE_PQ;
 		  break;
 #endif
 #if !defined(TURN_NO_MYSQL)
 		case 'M':
-		  STRCPY(turn_params.users_db.userdb,optarg);
-		  turn_params.users_db.userdb_type = TURN_USERDB_TYPE_MYSQL;
+		  STRCPY(turn_params.default_users_db.persistent_users_db.userdb,optarg);
+		  turn_params.default_users_db.persistent_users_db.userdb_type = TURN_USERDB_TYPE_MYSQL;
 		  break;
 #endif
 #if !defined(TURN_NO_HIREDIS)
 		case 'N':
-		  STRCPY(turn_params.users_db.userdb,optarg);
-		  turn_params.users_db.userdb_type = TURN_USERDB_TYPE_REDIS;
+		  STRCPY(turn_params.default_users_db.persistent_users_db.userdb,optarg);
+		  turn_params.default_users_db.persistent_users_db.userdb_type = TURN_USERDB_TYPE_REDIS;
 		  break;
 #endif
 		case 'u':
@@ -1382,13 +1382,13 @@ static int adminmain(int argc, char **argv)
 		}
 	}
 
-	if(is_st && (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_FILE)) {
+	if(is_st && (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_FILE)) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "ERROR: you have to use a PostgreSQL or MySQL database with short-term credentials\n");
 		exit(-1);
 	}
 
-	if(!strlen(turn_params.users_db.userdb) && (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_FILE))
-		STRCPY(turn_params.users_db.userdb,DEFAULT_USERDB_FILE);
+	if(!strlen(turn_params.default_users_db.persistent_users_db.userdb) && (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_FILE))
+		STRCPY(turn_params.default_users_db.persistent_users_db.userdb,DEFAULT_USERDB_FILE);
 
 	if(ct == TA_COMMAND_UNKNOWN) {
 		fprintf(stderr,"\n%s\n", AdminUsage);
@@ -1544,7 +1544,7 @@ int main(int argc, char **argv)
 	set_network_engine();
 
 	init_listener();
-	init_secrets_list(&turn_params.users_db.ram_db.static_auth_secrets);
+	init_secrets_list(&turn_params.default_users_db.ram_db.static_auth_secrets);
 	init_dynamic_ip_lists();
 
 	if (!strstr(argv[0], "turnadmin")) {
@@ -1590,9 +1590,9 @@ int main(int argc, char **argv)
 
 #endif
 
-	ns_bzero(&turn_params.users_db,sizeof(users_db_t));
-	turn_params.users_db.ram_db.static_accounts = ur_string_map_create(free);
-	turn_params.users_db.ram_db.dynamic_accounts = ur_string_map_create(free);
+	ns_bzero(&turn_params.default_users_db,sizeof(default_users_db_t));
+	turn_params.default_users_db.ram_db.static_accounts = ur_string_map_create(free);
+	turn_params.default_users_db.ram_db.dynamic_accounts = ur_string_map_create(free);
 
 	if(strstr(argv[0],"turnadmin"))
 		return adminmain(argc,argv);
@@ -1637,8 +1637,8 @@ int main(int argc, char **argv)
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIG: WARNING: --server-relay: NON-STANDARD AND DANGEROUS OPTION.\n");
 	}
 
-	if(!strlen(turn_params.users_db.userdb) && (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_FILE))
-			STRCPY(turn_params.users_db.userdb,DEFAULT_USERDB_FILE);
+	if(!strlen(turn_params.default_users_db.persistent_users_db.userdb) && (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_FILE))
+			STRCPY(turn_params.default_users_db.persistent_users_db.userdb,DEFAULT_USERDB_FILE);
 
 	read_userdb_file(0);
 	update_white_and_black_lists();
@@ -1666,7 +1666,7 @@ int main(int argc, char **argv)
 	}
 
 	if(!use_lt_credentials && !anon_credentials && !use_st_credentials) {
-		if(turn_params.users_db.ram_db.users_number) {
+		if(turn_params.default_users_db.ram_db.users_number) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you specified long-term user accounts, (-u option) \n	but you did not specify the long-term credentials option\n	(-a or --lt-cred-mech option).\n 	I am turning --lt-cred-mech ON for you, but double-check your configuration.\n");
 			get_realm(NULL)->options.ct = TURN_CREDENTIALS_LONG_TERM;
 			use_lt_credentials=1;
@@ -1677,7 +1677,7 @@ int main(int argc, char **argv)
 	}
 
 	if(use_lt_credentials) {
-		if(!turn_params.users_db.ram_db.users_number && (turn_params.users_db.userdb_type == TURN_USERDB_TYPE_FILE) && !get_realm(NULL)->options.use_auth_secret_with_timestamp) {
+		if(!turn_params.default_users_db.ram_db.users_number && (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_FILE) && !get_realm(NULL)->options.use_auth_secret_with_timestamp) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did not specify any user account, (-u option) \n	but you did specified a long-term credentials mechanism option (-a option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
 		} else if(!get_realm(NULL)->options.name[0]) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did specify the long-term credentials usage\n but you did not specify the realm option (-r option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
@@ -1685,7 +1685,7 @@ int main(int argc, char **argv)
 	}
 
 	if(anon_credentials) {
-		if(turn_params.users_db.ram_db.users_number) {
+		if(turn_params.default_users_db.ram_db.users_number) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you specified user accounts, (-u option) \n	but you also specified the anonymous user access option (-z or --no-auth option).\n 	User accounts will be ignored.\n");
 			get_realm(NULL)->options.ct = TURN_CREDENTIALS_NONE;
 			use_lt_credentials=0;
