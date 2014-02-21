@@ -79,6 +79,8 @@ extern int mobility;
 extern int no_permissions;
 extern int extra_requests;
 
+extern char origin[STUN_MAX_ORIGIN_SIZE+1];
+
 #define is_TCP_relay() (relay_transport == STUN_ATTRIBUTE_TRANSPORT_TCP_VALUE)
 
 void start_mclient(const char *remote_address, int port,

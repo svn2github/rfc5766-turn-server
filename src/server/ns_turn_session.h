@@ -99,8 +99,10 @@ typedef struct {
   int is_mobile;
   mobile_id_t mobile_id;
   char s_mobile_id[33];
+  /* Realm */
   realm_options realm_options;
   int realm_set;
+  s08bits origin[STUN_MAX_ORIGIN_SIZE + 1];
 } ts_ur_super_session;
 
 ////// Session info for statistics //////
@@ -145,6 +147,7 @@ struct turn_session_info {
 	size_t extra_peers_size;
 /* Realm */
 	char realm[STUN_MAX_REALM_SIZE+1];
+	char origin[STUN_MAX_ORIGIN_SIZE + 1];
 };
 
 void turn_session_info_init(struct turn_session_info* tsi);

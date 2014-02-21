@@ -92,6 +92,7 @@ struct cli_session {
 	telnet_t *ts;
 	FILE* f;
 	char realm[STUN_MAX_REALM_SIZE+1];
+	char origin[STUN_MAX_ORIGIN_SIZE+1];
 	realm_params *rp;
 };
 
@@ -112,6 +113,10 @@ static const char *CLI_HELP_STR[] =
    "  sr <realm> - set CLI session realm",
    "",
    "  ur - unset CLI session realm",
+   "",
+   "  so <origin> - set CLI session origin",
+   "",
+   "  uo - unset CLI session origin",
    "",
    "  tc <param-name> - toggle a configuration parameter",
    "     (see pc command output for togglable param names)",
@@ -437,6 +442,9 @@ static int print_session(ur_map_key_type key, ur_map_value_type value, void *arg
 		if(cs->realm[0] && strcmp(cs->realm,tsi->realm))
 			return 0;
 
+		if(cs->origin[0] && strcmp(cs->origin,tsi->origin))
+					return 0;
+
 		if(csarg->users) {
 			ur_string_map_value_type value;
 			if(!ur_string_map_get(csarg->users, (ur_string_map_key_type)(char*)tsi->username, &value)) {
@@ -489,6 +497,8 @@ static int print_session(ur_map_key_type key, ur_map_value_type value, void *arg
 								tsi->username);
 				if(tsi->realm[0])
 					myprintf(cs,"      realm: %s\n",tsi->realm);
+				if(tsi->origin[0])
+					myprintf(cs,"      origin: %s\n",tsi->origin);
 				if(turn_time_before(csarg->ct, tsi->start_time)) {
 					myprintf(cs,"      started: undefined time\n");
 				} else {
@@ -592,8 +602,21 @@ static void print_sessions(struct cli_session* cs, const char* pn, int exact_mat
 			myprintf(cs,"\n");
 		}
 
-		myprintf(cs,"  Total sessions: %lu\n", (unsigned long)arg.counter);
-		myprintf(cs,"\n");
+		{
+			char ts[1025];
+			snprintf(ts,sizeof(ts),"  Total sessions");
+			if(cs->realm[0]) {
+				snprintf(ts+strlen(ts),sizeof(ts)-strlen(ts)," for realm %s",cs->realm);
+				if(cs->origin[0])
+					snprintf(ts+strlen(ts),sizeof(ts)-strlen(ts)," and for origin %s",cs->origin);
+			} else {
+				if(cs->origin[0])
+					snprintf(ts+strlen(ts),sizeof(ts)-strlen(ts)," for origin %s",cs->origin);
+			}
+			snprintf(ts+strlen(ts),sizeof(ts)-strlen(ts),": %lu", (unsigned long)arg.counter);
+			myprintf(cs,"%s\n", ts);
+			myprintf(cs,"\n");
+		}
 
 		if(!print_users && !(cs->f)) {
 			if((unsigned long)arg.counter > (unsigned long)cli_max_output_sessions) {
@@ -778,6 +801,8 @@ static void cli_print_configuration(struct cli_session* cs)
 			cli_print_str(cs,get_realm(NULL)->options.name,"Default realm",0);
 		if(cs->realm[0])
 			cli_print_str(cs,cs->realm,"CLI session realm",0);
+		if(cs->origin[0])
+			cli_print_str(cs,cs->origin,"CLI session origin",0);
 		if(cs->rp->options.ct == TURN_CREDENTIALS_LONG_TERM)
 			cli_print_flag(cs,1,"Long-term authorization mechanism",0);
 		else if(cs->rp->options.ct == TURN_CREDENTIALS_SHORT_TERM)
@@ -958,6 +983,12 @@ static int run_cli_input(struct cli_session* cs, const char *buf0, unsigned int 
 			} else if(strcmp(cmd,"ur") == 0) {
 				cs->realm[0]=0;
 				cs->rp = get_realm(NULL);
+				type_cli_cursor(cs);
+			} else if(strstr(cmd,"so ") == cmd) {
+				STRCPY(cs->origin,cmd+3);
+				type_cli_cursor(cs);
+			} else if(strcmp(cmd,"uo") == 0) {
+				cs->origin[0]=0;
 				type_cli_cursor(cs);
 			} else if(strstr(cmd,"tc") == cmd) {
 				toggle_cli_param(cs,cmd+2);

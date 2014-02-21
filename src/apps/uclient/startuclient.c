@@ -351,6 +351,9 @@ static int clnet_allocate(int verbose,
 		  }
 		}
 
+		if(origin[0])
+			stun_attr_add(&message, STUN_ATTRIBUTE_ORIGIN, origin, strlen(origin));
+
 		if(add_integrity(clnet_info, &message)<0) return -1;
 
 		stun_attr_add_fingerprint_str(message.buf,(size_t*)&(message.len));

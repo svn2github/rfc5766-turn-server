@@ -88,6 +88,8 @@ int no_permissions = 0;
 
 int extra_requests = 0;
 
+char origin[STUN_MAX_ORIGIN_SIZE+1] = "\0";
+
 //////////////// local definitions /////////////////
 
 static char Usage[] =
@@ -137,7 +139,8 @@ static char Usage[] =
   "	-u	STUN/TURN user name.\n"
   "	-w	STUN/TURN user password.\n"
   "	-W	TURN REST API authentication secret. Is not compatible with -A option.\n"
-  "	-C	TURN REST API username/timestamp separator symbol (character). The default value is ':'.\n";
+  "	-C	TURN REST API username/timestamp separator symbol (character). The default value is ':'.\n"
+  "	-o	<origin> - the ORIGIN STUN attribute value.\n";
 
 //////////////////////////////////////////////////
 
@@ -164,8 +167,11 @@ int main(int argc, char **argv)
 
 	ns_bzero(local_addr, sizeof(local_addr));
 
-	while ((c = getopt(argc, argv, "d:p:l:n:L:m:e:r:u:w:i:k:z:W:C:E:F:vsyhcxXgtTSAPDNOUHMRIG")) != -1) {
+	while ((c = getopt(argc, argv, "d:p:l:n:L:m:e:r:u:w:i:k:z:W:C:E:F:o:vsyhcxXgtTSAPDNOUHMRIG")) != -1) {
 		switch (c){
+		case 'o':
+			STRCPY(origin,optarg);
+			break;
 		case 'G':
 			extra_requests = 1;
 			break;

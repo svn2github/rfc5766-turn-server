@@ -369,6 +369,7 @@ int turn_session_info_copy_from(struct turn_session_info* tsi, ts_ur_super_sessi
 			STRCPY(tsi->tls_method, get_ioa_socket_tls_method(ss->client_session.s));
 			STRCPY(tsi->tls_cipher, get_ioa_socket_tls_cipher(ss->client_session.s));
 			STRCPY(tsi->realm, ss->realm_options.name);
+			STRCPY(tsi->origin, ss->origin);
 
 			if(ss->t_received_packets > ss->received_packets)
 				tsi->received_packets = ss->t_received_packets;
@@ -3047,6 +3048,7 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 		} else if((method != STUN_METHOD_BINDING) || (*(server->secure_stun))) {
 
 			if(method == STUN_METHOD_ALLOCATE) {
+
 				SOCKET_TYPE cst = get_ioa_socket_type(ss->client_session.s);
 				turn_server_addrs_list_t *asl = server->alternate_servers_list;
 
@@ -3063,17 +3065,16 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 				}
 			}
 
-			if(!(ss->realm_set)) {
-				stun_attr_ref sar = stun_attr_get_first_by_type_str(ioa_network_buffer_data(nbh),
-					ioa_network_buffer_get_size(nbh),
+			if(!(ss->realm_set) && (method == STUN_METHOD_ALLOCATE)) {
+				stun_attr_ref sar = stun_attr_get_first_by_type_str(ioa_network_buffer_data(in_buffer->nbh),
+					ioa_network_buffer_get_size(in_buffer->nbh),
 					STUN_ATTRIBUTE_ORIGIN);
 
 				if(sar) {
 					int sarlen = stun_attr_get_len(sar);
 					if(sarlen>0) {
-						char origin[513];
-						strncpy(origin,(const char*)stun_attr_get_value(sar),(size_t)sarlen);
-						get_realm_options_by_origin(origin,&(ss->realm_options));
+						strncpy(ss->origin,(const char*)stun_attr_get_value(sar),STUN_MAX_ORIGIN_SIZE);
+						get_realm_options_by_origin(ss->origin,&(ss->realm_options));
 					}
 				}
 				ss->realm_set = 1;
