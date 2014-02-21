@@ -138,7 +138,6 @@ typedef struct _ram_users_db_t {
 
 typedef struct _persistent_users_db_t {
 
-	TURN_USERDB_TYPE userdb_type;
 	char userdb[TURN_LONG_STRING_SIZE];
 	void *connection;
 
@@ -146,6 +145,8 @@ typedef struct _persistent_users_db_t {
 
 typedef struct _default_users_db_t
 {
+	TURN_USERDB_TYPE userdb_type;
+
 	persistent_users_db_t persistent_users_db;
 
 	ram_users_db_t ram_db;

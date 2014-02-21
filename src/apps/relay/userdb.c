@@ -227,6 +227,13 @@ void add_to_secrets_list(secrets_list_t *sl, const char* elem)
 
 /////////// USER DB CHECK //////////////////
 
+static persistent_users_db_t* get_persistent_users_db(const char* realm)
+{
+	UNUSED_ARG(realm);
+	//TODO
+	return &(turn_params.default_users_db.persistent_users_db);
+}
+
 static int convert_string_key_to_binary(char* keysource, hmackey_t key) {
 	if(strlen(keysource)!=(2*sizeof(hmackey_t))) {
 		return -1;
@@ -249,7 +256,7 @@ static int convert_string_key_to_binary(char* keysource, hmackey_t key) {
 static int is_pqsql_userdb(void)
 {
 #if !defined(TURN_NO_PQ)
-	return (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_PQ);
+	return (turn_params.default_users_db.userdb_type == TURN_USERDB_TYPE_PQ);
 #else
 	return 0;
 #endif
@@ -258,7 +265,7 @@ static int is_pqsql_userdb(void)
 static int is_mysql_userdb(void)
 {
 #if !defined(TURN_NO_MYSQL)
-	return (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_MYSQL);
+	return (turn_params.default_users_db.userdb_type == TURN_USERDB_TYPE_MYSQL);
 #else
 	return 0;
 #endif
@@ -267,15 +274,21 @@ static int is_mysql_userdb(void)
 static int is_redis_userdb(void)
 {
 #if !defined(TURN_NO_HIREDIS)
-	return (turn_params.default_users_db.persistent_users_db.userdb_type == TURN_USERDB_TYPE_REDIS);
+	return (turn_params.default_users_db.userdb_type == TURN_USERDB_TYPE_REDIS);
 #else
 	return 0;
 #endif
 }
 
 #if !defined(TURN_NO_PQ)
-static PGconn *get_pqdb_connection_func(PGconn *pqdbconnection)
+static PGconn *get_pqdb_connection(const char *realm)
 {
+	if(!is_pqsql_userdb())
+		return NULL;
+
+	persistent_users_db_t *pud = get_persistent_users_db(realm);
+
+	PGconn *pqdbconnection = (PGconn*)(pud->connection);
 	if(pqdbconnection) {
 		ConnStatusType status = PQstatus(pqdbconnection);
 		if(status != CONNECTION_OK) {
@@ -283,42 +296,37 @@ static PGconn *get_pqdb_connection_func(PGconn *pqdbconnection)
 			pqdbconnection = NULL;
 		}
 	}
-	if(!pqdbconnection && is_pqsql_userdb()) {
+	if(!pqdbconnection) {
 		char *errmsg=NULL;
-		PQconninfoOption *co = PQconninfoParse(turn_params.default_users_db.persistent_users_db.userdb, &errmsg);
+		PQconninfoOption *co = PQconninfoParse(pud->userdb, &errmsg);
 		if(!co) {
 			if(errmsg) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection <%s>, connection string format error: %s\n",turn_params.default_users_db.persistent_users_db.userdb,errmsg);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection <%s>, connection string format error: %s\n",pud->userdb,errmsg);
 				turn_free(errmsg,strlen(errmsg)+1);
 			} else {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, unknown connection string format error\n",turn_params.default_users_db.persistent_users_db.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, unknown connection string format error\n",pud->userdb);
 			}
 		} else {
 			PQconninfoFree(co);
 			if(errmsg)
 				turn_free(errmsg,strlen(errmsg)+1);
-			pqdbconnection = PQconnectdb(turn_params.default_users_db.persistent_users_db.userdb);
+			pqdbconnection = PQconnectdb(pud->userdb);
 			if(!pqdbconnection) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.default_users_db.persistent_users_db.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",pud->userdb);
 			} else {
 				ConnStatusType status = PQstatus(pqdbconnection);
 				if(status != CONNECTION_OK) {
 					PQfinish(pqdbconnection);
 					pqdbconnection = NULL;
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",turn_params.default_users_db.persistent_users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open PostgreSQL DB connection: <%s>, runtime error\n",pud->userdb);
 				} else if(!donot_print_connection_success){
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "PostgreSQL DB connection success: %s\n",turn_params.default_users_db.persistent_users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "PostgreSQL DB connection success: %s\n",pud->userdb);
 				}
 			}
 		}
+		pud->connection = pqdbconnection;
 	}
 	return pqdbconnection;
-}
-
-static PGconn *get_pqdb_connection(void)
-{
-	turn_params.default_users_db.persistent_users_db.connection = get_pqdb_connection_func((PGconn *)(turn_params.default_users_db.persistent_users_db.connection));
-	return (PGconn *)turn_params.default_users_db.persistent_users_db.connection;
 }
 
 #endif
@@ -441,8 +449,15 @@ static Myconninfo *MyconninfoParse(char *userdb, char **errmsg)
 	return co;
 }
 
-static MYSQL *get_mydb_connection_func(MYSQL *mydbconnection)
+static MYSQL *get_mydb_connection(const char *realm)
 {
+	if(!is_mysql_userdb())
+		return NULL;
+
+	persistent_users_db_t *pud = get_persistent_users_db(realm);
+
+	MYSQL *mydbconnection = (MYSQL*)(pud->connection);
+
 	if(mydbconnection) {
 		if(mysql_ping(mydbconnection)) {
 			mysql_close(mydbconnection);
@@ -450,22 +465,22 @@ static MYSQL *get_mydb_connection_func(MYSQL *mydbconnection)
 		}
 	}
 
-	if(!mydbconnection && is_mysql_userdb()) {
+	if(!mydbconnection) {
 		char *errmsg=NULL;
-		Myconninfo *co=MyconninfoParse(turn_params.default_users_db.persistent_users_db.userdb, &errmsg);
+		Myconninfo *co=MyconninfoParse(pud->userdb, &errmsg);
 		if(!co) {
 			if(errmsg) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.default_users_db.persistent_users_db.userdb,errmsg);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",pud->userdb,errmsg);
 				turn_free(errmsg,strlen(errmsg)+1);
 			} else {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error\n",turn_params.default_users_db.persistent_users_db.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error\n",pud->userdb);
 			}
 		} else if(errmsg) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",turn_params.default_users_db.persistent_users_db.userdb,errmsg);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection <%s>, connection string format error: %s\n",pud->userdb,errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
 			MyconninfoFree(co);
 		} else if(!(co->dbname)) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "MySQL Database name is not provided: <%s>\n",turn_params.default_users_db.persistent_users_db.userdb);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "MySQL Database name is not provided: <%s>\n",pud->userdb);
 			MyconninfoFree(co);
 		} else {
 			mydbconnection = mysql_init(NULL);
@@ -476,7 +491,7 @@ static MYSQL *get_mydb_connection_func(MYSQL *mydbconnection)
 					mysql_options(mydbconnection,MYSQL_OPT_CONNECT_TIMEOUT,&(co->connect_timeout));
 				MYSQL *conn = mysql_real_connect(mydbconnection, co->host, co->user, co->password, co->dbname, co->port, NULL, CLIENT_IGNORE_SIGPIPE);
 				if(!conn) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection: <%s>, runtime error\n",turn_params.default_users_db.persistent_users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open MySQL DB connection: <%s>, runtime error\n",pud->userdb);
 					mysql_close(mydbconnection);
 					mydbconnection=NULL;
 				} else if(mysql_select_db(mydbconnection, co->dbname)) {
@@ -484,19 +499,14 @@ static MYSQL *get_mydb_connection_func(MYSQL *mydbconnection)
 					mysql_close(mydbconnection);
 					mydbconnection=NULL;
 				} else if(!donot_print_connection_success) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "MySQL DB connection success: %s\n",turn_params.default_users_db.persistent_users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "MySQL DB connection success: %s\n",pud->userdb);
 				}
 			}
 			MyconninfoFree(co);
 		}
+		pud->connection = mydbconnection;
 	}
 	return mydbconnection;
-}
-
-static MYSQL *get_mydb_connection(void)
-{
-	turn_params.default_users_db.persistent_users_db.connection = get_mydb_connection_func((MYSQL *)(turn_params.default_users_db.persistent_users_db.connection));
-	return (MYSQL *)turn_params.default_users_db.persistent_users_db.connection;
 }
 
 #endif
@@ -631,13 +641,13 @@ redis_context_handle get_redis_async_connection(struct event_base *base, char* c
 	Ryconninfo *co = RyconninfoParse(connection_string, &errmsg);
 	if (!co) {
 		if (errmsg) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_users_db.persistent_users_db.userdb, errmsg);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", connection_string, errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
 		} else {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.default_users_db.persistent_users_db.userdb);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", connection_string);
 		}
 	} else if (errmsg) {
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_users_db.persistent_users_db.userdb, errmsg);
+		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", connection_string, errmsg);
 		turn_free(errmsg,strlen(errmsg)+1);
 		RyconninfoFree(co);
 	} else {
@@ -657,21 +667,27 @@ redis_context_handle get_redis_async_connection(struct event_base *base, char* c
 	return ret;
 }
 
-static redisContext *get_redis_connection_func(redisContext *redisconnection)
+static redisContext *get_redis_connection(const char *realm)
 {
-	if (!redisconnection && is_redis_userdb()) {
+	if(!is_redis_userdb())
+		return NULL;
+
+	persistent_users_db_t *pud = get_persistent_users_db(realm);
+
+	redisContext *redisconnection = (redisContext*)(pud->connection);
+	if (!redisconnection) {
 
 		char *errmsg = NULL;
-		Ryconninfo *co = RyconninfoParse(turn_params.default_users_db.persistent_users_db.userdb, &errmsg);
+		Ryconninfo *co = RyconninfoParse(pud->userdb, &errmsg);
 		if (!co) {
 			if (errmsg) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_users_db.persistent_users_db.userdb, errmsg);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", pud->userdb, errmsg);
 				turn_free(errmsg,strlen(errmsg)+1);
 			} else {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", turn_params.default_users_db.persistent_users_db.userdb);
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", pud->userdb);
 			}
 		} else if (errmsg) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", turn_params.default_users_db.persistent_users_db.userdb, errmsg);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", pud->userdb, errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
 			RyconninfoFree(co);
 		} else {
@@ -704,19 +720,14 @@ static redisContext *get_redis_connection_func(redisContext *redisconnection)
 					turnFreeRedisReply(redisCommand(redisconnection, "select %s", co->dbname));
 				}
 				if (!donot_print_connection_success) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB sync connection success: %s\n", turn_params.default_users_db.persistent_users_db.userdb);
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB sync connection success: %s\n", pud->userdb);
 				}
 			}
 			RyconninfoFree(co);
 		}
+		pud->connection = redisconnection;
 	}
 	return redisconnection;
-}
-
-static redisContext *get_redis_connection(void)
-{
-	turn_params.default_users_db.persistent_users_db.connection = get_redis_connection_func((redisContext *)(turn_params.default_users_db.persistent_users_db.connection));
-	return (redisContext *)turn_params.default_users_db.persistent_users_db.connection;
 }
 
 #endif
@@ -736,7 +747,7 @@ static int get_auth_secrets(secrets_list_t *sl)
 	}
 
 #if !defined(TURN_NO_PQ)
-	PGconn * pqc = get_pqdb_connection();
+	PGconn * pqc = get_pqdb_connection(NULL);
 	if(pqc) {
 		char statement[LONG_STRING_SIZE];
 		STRCPY(statement,"select value from turn_secret");
@@ -762,7 +773,7 @@ static int get_auth_secrets(secrets_list_t *sl)
 #endif
 
 #if !defined(TURN_NO_MYSQL)
-	MYSQL * myc = get_mydb_connection();
+	MYSQL * myc = get_mydb_connection(NULL);
 	if(myc) {
 		char statement[LONG_STRING_SIZE];
 		STRCPY(statement,"select value from turn_secret");
@@ -801,7 +812,7 @@ static int get_auth_secrets(secrets_list_t *sl)
 #endif
 
 #if !defined(TURN_NO_HIREDIS)
-	redisContext *rc = get_redis_connection();
+	redisContext *rc = get_redis_connection(NULL);
 	if(rc) {
 		redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/secret/*");
 		if(reply) {
@@ -1038,7 +1049,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 
 #if !defined(TURN_NO_PQ)
 	{
-		PGconn * pqc = get_pqdb_connection();
+		PGconn * pqc = get_pqdb_connection(NULL);
 		if(pqc) {
 			char statement[LONG_STRING_SIZE];
 			snprintf(statement,sizeof(statement),"select hmackey from turnusers_lt where name='%s'",usname);
@@ -1068,7 +1079,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 
 #if !defined(TURN_NO_MYSQL)
 	{
-		MYSQL * myc = get_mydb_connection();
+		MYSQL * myc = get_mydb_connection(NULL);
 		if(myc) {
 			char statement[LONG_STRING_SIZE];
 			snprintf(statement,sizeof(statement),"select hmackey from turnusers_lt where name='%s'",usname);
@@ -1112,7 +1123,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 
 #if !defined(TURN_NO_HIREDIS)
 	{
-		redisContext * rc = get_redis_connection();
+		redisContext * rc = get_redis_connection(NULL);
 		if(rc) {
 			char s[LONG_STRING_SIZE];
 			snprintf(s,sizeof(s),"get turn/user/%s/key", usname);
@@ -1170,7 +1181,7 @@ int get_user_pwd(u08bits *usname, st_password_t pwd)
 
 	{
 #if !defined(TURN_NO_PQ)
-	PGconn * pqc = get_pqdb_connection();
+	PGconn * pqc = get_pqdb_connection(NULL);
 	if(pqc) {
 		PGresult *res = PQexec(pqc, statement);
 
@@ -1192,7 +1203,7 @@ int get_user_pwd(u08bits *usname, st_password_t pwd)
 	}
 #endif
 #if !defined(TURN_NO_MYSQL)
-	MYSQL * myc = get_mydb_connection();
+	MYSQL * myc = get_mydb_connection(NULL);
 	if(myc) {
 		int res = mysql_query(myc, statement);
 		if(res) {
@@ -1226,7 +1237,7 @@ int get_user_pwd(u08bits *usname, st_password_t pwd)
 #endif
 #if !defined(TURN_NO_HIREDIS)
 	{
-		redisContext * rc = get_redis_connection();
+		redisContext * rc = get_redis_connection(NULL);
 		if(rc) {
 			char s[LONG_STRING_SIZE];
 			snprintf(s,sizeof(s),"get turn/user/%s/password", usname);
@@ -1327,12 +1338,14 @@ void read_userdb_file(int to_print)
 	static int first_read = 1;
 	static turn_time_t mtime = 0;
 
-	if(turn_params.default_users_db.persistent_users_db.userdb_type != TURN_USERDB_TYPE_FILE)
+	if(turn_params.default_users_db.userdb_type != TURN_USERDB_TYPE_FILE)
 		return;
 	if(get_realm(NULL)->options.use_auth_secret_with_timestamp)
 		return;
 
 	FILE *f = NULL;
+
+	persistent_users_db_t *pud = get_persistent_users_db(NULL);
 
 	if(full_path_to_userdb_file) {
 		struct stat sb;
@@ -1348,7 +1361,7 @@ void read_userdb_file(int to_print)
 	}
 
 	if (!full_path_to_userdb_file)
-		full_path_to_userdb_file = find_config_file(turn_params.default_users_db.persistent_users_db.userdb, first_read);
+		full_path_to_userdb_file = find_config_file(pud->userdb, first_read);
 
 	if (full_path_to_userdb_file)
 		f = fopen(full_path_to_userdb_file, "r");
@@ -1390,7 +1403,7 @@ void read_userdb_file(int to_print)
 		fclose(f);
 
 	} else if (first_read) {
-	  TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Cannot find userdb file: %s: going without flat file user database.\n", turn_params.default_users_db.persistent_users_db.userdb);
+	  TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Cannot find userdb file: %s: going without flat file user database.\n", pud->userdb);
 	} 
 
 	first_read = 0;
@@ -1452,7 +1465,7 @@ static int list_users(int is_st)
 	if(is_pqsql_userdb()){
 #if !defined(TURN_NO_PQ)
 		char statement[LONG_STRING_SIZE];
-		PGconn *pqc = get_pqdb_connection();
+		PGconn *pqc = get_pqdb_connection(NULL);
 		if(pqc) {
 			if(is_st) {
 			  snprintf(statement,sizeof(statement),"select name from turnusers_st order by name");
@@ -1479,7 +1492,7 @@ static int list_users(int is_st)
 	} else if(is_mysql_userdb()){
 #if !defined(TURN_NO_MYSQL)
 		char statement[LONG_STRING_SIZE];
-		MYSQL * myc = get_mydb_connection();
+		MYSQL * myc = get_mydb_connection(NULL);
 		if(myc) {
 			if(is_st) {
 			  snprintf(statement,sizeof(statement),"select name from turnusers_st order by name");
@@ -1515,7 +1528,7 @@ static int list_users(int is_st)
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection();
+		redisContext *rc = get_redis_connection(NULL);
 		if(rc) {
 			secrets_list_t keys;
 			size_t isz = 0;
@@ -1597,7 +1610,7 @@ static int show_secret(void)
 
 	if(is_pqsql_userdb()){
 #if !defined(TURN_NO_PQ)
-		PGconn *pqc = get_pqdb_connection();
+		PGconn *pqc = get_pqdb_connection(NULL);
 		if(pqc) {
 			PGresult *res = PQexec(pqc, statement);
 			if(!res || (PQresultStatus(res) != PGRES_TUPLES_OK)) {
@@ -1618,7 +1631,7 @@ static int show_secret(void)
 #endif
 	} else if(is_mysql_userdb()){
 #if !defined(TURN_NO_MYSQL)
-		MYSQL * myc = get_mydb_connection();
+		MYSQL * myc = get_mydb_connection(NULL);
 		if(myc) {
 			int res = mysql_query(myc, statement);
 			if(res) {
@@ -1649,7 +1662,7 @@ static int show_secret(void)
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection();
+		redisContext *rc = get_redis_connection(NULL);
 		if(rc) {
 			redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/secret/*");
 			if(reply) {
@@ -1707,7 +1720,7 @@ static int del_secret(u08bits *secret) {
 	if (is_pqsql_userdb()) {
 #if !defined(TURN_NO_PQ)
 		char statement[LONG_STRING_SIZE];
-		PGconn *pqc = get_pqdb_connection();
+		PGconn *pqc = get_pqdb_connection(NULL);
 		if (pqc) {
 			if(!secret || (secret[0]==0))
 			  snprintf(statement,sizeof(statement),"delete from turn_secret");
@@ -1723,7 +1736,7 @@ static int del_secret(u08bits *secret) {
 	} else if (is_mysql_userdb()) {
 #if !defined(TURN_NO_MYSQL)
 		char statement[LONG_STRING_SIZE];
-		MYSQL * myc = get_mydb_connection();
+		MYSQL * myc = get_mydb_connection(NULL);
 		if (myc) {
 			if(!secret || (secret[0]==0))
 			  snprintf(statement,sizeof(statement),"delete from turn_secret");
@@ -1734,7 +1747,7 @@ static int del_secret(u08bits *secret) {
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection();
+		redisContext *rc = get_redis_connection(NULL);
 		if(rc) {
 			redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/secret/*");
 			if(reply) {
@@ -1805,7 +1818,7 @@ static int set_secret(u08bits *secret) {
 	if (is_pqsql_userdb()) {
 #if !defined(TURN_NO_PQ)
 		char statement[LONG_STRING_SIZE];
-		PGconn *pqc = get_pqdb_connection();
+		PGconn *pqc = get_pqdb_connection(NULL);
 		if (pqc) {
 		  snprintf(statement,sizeof(statement),"insert into turn_secret values('%s')",secret);
 		  PGresult *res = PQexec(pqc, statement);
@@ -1823,7 +1836,7 @@ static int set_secret(u08bits *secret) {
 	} else if (is_mysql_userdb()) {
 #if !defined(TURN_NO_MYSQL)
 		char statement[LONG_STRING_SIZE];
-		MYSQL * myc = get_mydb_connection();
+		MYSQL * myc = get_mydb_connection(NULL);
 		if (myc) {
 		  snprintf(statement,sizeof(statement),"insert into turn_secret values('%s')",secret);
 		  int res = mysql_query(myc, statement);
@@ -1837,7 +1850,7 @@ static int set_secret(u08bits *secret) {
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection();
+		redisContext *rc = get_redis_connection(NULL);
 		if(rc) {
 			char s[LONG_STRING_SIZE];
 
@@ -1909,7 +1922,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 	} else if(is_pqsql_userdb()){
 #if !defined(TURN_NO_PQ)
 		char statement[LONG_STRING_SIZE];
-		PGconn *pqc = get_pqdb_connection();
+		PGconn *pqc = get_pqdb_connection(NULL);
 		if(pqc) {
 			if(ct == TA_DELETE_USER) {
 				if(is_st) {
@@ -1953,7 +1966,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 	} else if(is_mysql_userdb()){
 #if !defined(TURN_NO_MYSQL)
 		char statement[LONG_STRING_SIZE];
-		MYSQL * myc = get_mydb_connection();
+		MYSQL * myc = get_mydb_connection(NULL);
 		if(myc) {
 			if(ct == TA_DELETE_USER) {
 				if(is_st) {
@@ -1990,7 +2003,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection();
+		redisContext *rc = get_redis_connection(NULL);
 		if(rc) {
 			char statement[LONG_STRING_SIZE];
 
@@ -2017,7 +2030,8 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 #endif
 	} else if(!is_st) {
 
-		char *full_path_to_userdb_file = find_config_file(turn_params.default_users_db.persistent_users_db.userdb, 1);
+		persistent_users_db_t *pud = get_persistent_users_db(NULL);
+		char *full_path_to_userdb_file = find_config_file(pud->userdb, 1);
 		FILE *f = full_path_to_userdb_file ? fopen(full_path_to_userdb_file,"r") : NULL;
 		int found = 0;
 		char us[LONG_STRING_SIZE];
@@ -2030,7 +2044,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		us[sizeof(us)-1]=0;
 
 		if (!f) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "File %s not found, will be created.\n",turn_params.default_users_db.persistent_users_db.userdb);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "File %s not found, will be created.\n",pud->userdb);
 		} else {
 
 			char sarg[LONG_STRING_SIZE];
@@ -2094,7 +2108,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		}
 
 		if(!full_path_to_userdb_file)
-			full_path_to_userdb_file=strdup(turn_params.default_users_db.persistent_users_db.userdb);
+			full_path_to_userdb_file=strdup(pud->userdb);
 
 		size_t dirsz = strlen(full_path_to_userdb_file)+21;
 		char *dir = (char*)turn_malloc(dirsz+1);
@@ -2132,7 +2146,7 @@ void auth_ping(void)
 	donot_print_connection_success = 1;
 
 #if !defined(TURN_NO_PQ)
-	PGconn * pqc = get_pqdb_connection();
+	PGconn * pqc = get_pqdb_connection(NULL);
 	if(pqc) {
 		char statement[LONG_STRING_SIZE];
 		STRCPY(statement,"select value from turn_secret");
@@ -2149,7 +2163,7 @@ void auth_ping(void)
 #endif
 
 #if !defined(TURN_NO_MYSQL)
-	MYSQL * myc = get_mydb_connection();
+	MYSQL * myc = get_mydb_connection(NULL);
 	if(myc) {
 		char statement[LONG_STRING_SIZE];
 		STRCPY(statement,"select value from turn_secret");
@@ -2168,7 +2182,7 @@ void auth_ping(void)
 #endif
 
 #if !defined(TURN_NO_HIREDIS)
-	redisContext *rc = get_redis_connection();
+	redisContext *rc = get_redis_connection(NULL);
 	if(rc) {
 		turnFreeRedisReply(redisCommand(rc, "keys turn/secret/*"));
 	}
@@ -2276,7 +2290,7 @@ static ip_range_list_t* get_ip_list(const char *kind)
 	ns_bzero(ret,sizeof(ip_range_list_t));
 
 #if !defined(TURN_NO_PQ)
-	PGconn * pqc = get_pqdb_connection();
+	PGconn * pqc = get_pqdb_connection(NULL);
 	if(pqc) {
 		char statement[LONG_STRING_SIZE];
 		snprintf(statement,sizeof(statement),"select ip_range from %s_peer_ip",kind);
@@ -2299,7 +2313,7 @@ static ip_range_list_t* get_ip_list(const char *kind)
 #endif
 
 #if !defined(TURN_NO_MYSQL)
-	MYSQL * myc = get_mydb_connection();
+	MYSQL * myc = get_mydb_connection(NULL);
 	if(myc) {
 		char statement[LONG_STRING_SIZE];
 		snprintf(statement,sizeof(statement),"select ip_range from %s_peer_ip",kind);
@@ -2333,7 +2347,7 @@ static ip_range_list_t* get_ip_list(const char *kind)
 #endif
 
 #if !defined(TURN_NO_HIREDIS)
-	redisContext *rc = get_redis_connection();
+	redisContext *rc = get_redis_connection(NULL);
 	if(rc) {
 		char statement[LONG_STRING_SIZE];
 		snprintf(statement,sizeof(statement),"keys turn/%s-peer-ip/*", kind);

@@ -738,7 +738,7 @@ static void cli_print_configuration(struct cli_session* cs)
 		myprintf(cs,"\n");
 
 		if(turn_params.default_users_db.persistent_users_db.userdb[0]) {
-			switch(turn_params.default_users_db.persistent_users_db.userdb_type) {
+			switch(turn_params.default_users_db.userdb_type) {
 			case TURN_USERDB_TYPE_FILE:
 				cli_print_str(cs,"file","DB type",0);
 				break;
