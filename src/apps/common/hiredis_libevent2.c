@@ -57,6 +57,16 @@ struct redisLibeventEvents
 
 static redisAsyncContext *defaultAsyncContext = NULL;
 
+typedef struct _redis_conn_data_t {
+	int is_set;
+	char *ip;
+	int port;
+	char *pwd;
+	int db;
+} redis_conn_data_t;
+
+static redis_conn_data_t redis_conn_data = {0,NULL,0,NULL,0};
+
 static redisAsyncContext* get_AsyncContext(const char *realm)
 {
 	//TODO
@@ -261,6 +271,14 @@ redis_context_handle redisLibeventAttach(struct event_base *base, char *ip0, int
   int port = DEFAULT_REDIS_PORT;
   if(port0>0)
 	  port=port0;
+
+  if(!redis_conn_data.is_set) {
+	  redis_conn_data.db = db;
+	  redis_conn_data.ip = strdup(ip);
+	  redis_conn_data.port = port;
+	  redis_conn_data.pwd = strdup(pwd);
+	  redis_conn_data.is_set = 1;
+  }
   
   ac = redisAsyncConnect(ip, port);
   if (ac->err) {
