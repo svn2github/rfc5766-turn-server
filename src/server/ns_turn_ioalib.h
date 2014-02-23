@@ -251,6 +251,8 @@ unsigned char *base64_decode(const char *data,
 
 void get_default_realm_options(realm_options* ro);
 void get_realm_options_by_origin(char *origin, realm_options* ro);
+int get_canonic_origin(const char* o, char *co, int sz);
+int get_default_protocol_port(const char* scheme, size_t slen);
 
 ///////////////////////////////////////
 

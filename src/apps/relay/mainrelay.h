@@ -151,9 +151,6 @@ struct listener_server {
 	dtls_listener_relay_server_type ***udp_services;
 	dtls_listener_relay_server_type ***dtls_services;
 	dtls_listener_relay_server_type ***aux_udp_services;
-#if !defined(TURN_NO_HIREDIS)
-	redis_context_handle rch;
-#endif
 };
 
 enum _NET_ENG_VERSION {

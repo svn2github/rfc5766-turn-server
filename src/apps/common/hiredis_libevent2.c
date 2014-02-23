@@ -57,6 +57,13 @@ struct redisLibeventEvents
 
 static redisAsyncContext *defaultAsyncContext = NULL;
 
+static redisAsyncContext* get_AsyncContext(const char *realm)
+{
+	//TODO
+	UNUSED_ARG(realm);
+	return defaultAsyncContext;
+}
+
 ///////////// Messages ////////////////////////////
 
 struct redis_message
@@ -182,11 +189,11 @@ static void receive_message_for_redis(struct bufferevent *bev, void *ptr)
 	}
 }
 
-void send_message_to_redis(redis_context_handle rch, const char *command, const char *key, const char *format,...)
+void send_message_to_redis(const char* realm, const char *command, const char *key, const char *format,...)
 {
-	redisAsyncContext *ac=(redisAsyncContext *)rch;
+	redisAsyncContext *ac=(redisAsyncContext *)get_AsyncContext(realm);;
 	if(!ac)
-		ac = defaultAsyncContext;
+		return;
 
 	if(ac) {
 		struct redis_message rm;
@@ -222,22 +229,19 @@ static void deleteKeysCallback(redisAsyncContext *c, void *reply0, void *privdat
 	}
 }
 
-void delete_redis_keys(const char *key_pattern)
+void delete_redis_keys(const char *realm, const char *key_pattern)
 {
-	redisAsyncContext *ac = defaultAsyncContext;
+	redisAsyncContext *ac = get_AsyncContext(realm);
 	if(ac) {
 		redisAsyncCommand(ac, deleteKeysCallback, ac->ev.data, "keys %s", key_pattern);
 	}
 }
 
-void set_default_async_context(redis_context_handle rch)
+void set_realm_async_context(const char *realm, redis_context_handle rch)
 {
+	//TODO
+	UNUSED_ARG(realm);
 	defaultAsyncContext = (redisAsyncContext*)rch;
-}
-
-int default_async_context_is_not_empty(void)
-{
-	return (defaultAsyncContext != NULL);
 }
 
 ///////////////////////// Attach /////////////////////////////////

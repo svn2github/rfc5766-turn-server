@@ -730,8 +730,7 @@ static void setup_listener(void)
 
 #if !defined(TURN_NO_HIREDIS)
 	if(turn_params.use_redis_statsdb) {
-		turn_params.listener.rch = get_redis_async_connection(turn_params.listener.event_base, turn_params.redis_statsdb);
-		set_default_async_context(turn_params.listener.rch);
+		set_realm_async_context(NULL, get_redis_async_connection(turn_params.listener.event_base, turn_params.redis_statsdb));
 		turn_report_allocation_delete_all();
 	}
 #endif

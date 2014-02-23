@@ -3123,11 +3123,11 @@ void turn_report_allocation_set(void *a, turn_time_t lifetime, int refresh)
 				}
 			}
 #if !defined(TURN_NO_HIREDIS)
-			if(default_async_context_is_not_empty()) {
+			{
 				char key[1024];
 				snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/status",(char*)ss->username, (unsigned long long)ss->id);
-				send_message_to_redis(NULL, "set", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
-				send_message_to_redis(NULL, "publish", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
+				send_message_to_redis(ss->realm_options.name, "set", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
+				send_message_to_redis(ss->realm_options.name, "publish", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
 			}
 #endif
 		}
@@ -3147,11 +3147,11 @@ void turn_report_allocation_delete(void *a)
 				}
 			}
 #if !defined(TURN_NO_HIREDIS)
-			if(default_async_context_is_not_empty()) {
+			{
 				char key[1024];
 				snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/status",(char*)ss->username, (unsigned long long)ss->id);
-				send_message_to_redis(NULL, "del", key, "");
-				send_message_to_redis(NULL, "publish", key, "deleted");
+				send_message_to_redis(ss->realm_options.name, "del", key, "");
+				send_message_to_redis(ss->realm_options.name, "publish", key, "deleted");
 			}
 #endif
 		}
@@ -3161,7 +3161,7 @@ void turn_report_allocation_delete(void *a)
 void turn_report_allocation_delete_all(void)
 {
 #if !defined(TURN_NO_HIREDIS)
-	delete_redis_keys("turn/user/*/allocation/*/status");
+	delete_redis_keys(NULL, "turn/user/*/allocation/*/status");
 #endif
 }
 
@@ -3177,10 +3177,10 @@ void turn_report_session_usage(void *session)
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"usage: session id=%018llu, username=<%s>, rp=%lu, rb=%lu, sp=%lu, sb=%lu\n", (unsigned long long)(ss->id), (char*)ss->username, (unsigned long)(ss->received_packets), (unsigned long)(ss->received_bytes),(unsigned long)(ss->sent_packets),(unsigned long)(ss->sent_bytes));
 				}
 #if !defined(TURN_NO_HIREDIS)
-				if(default_async_context_is_not_empty()) {
+				{
 					char key[1024];
 					snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/traffic",(char*)ss->username, (unsigned long long)(ss->id));
-					send_message_to_redis(NULL, "publish", key, "rcvp=%lu, rcvb=%lu, sentp=%lu, sentb=%lu",(unsigned long)(ss->received_packets), (unsigned long)(ss->received_bytes),(unsigned long)(ss->sent_packets),(unsigned long)(ss->sent_bytes));
+					send_message_to_redis(ss->realm_options.name, "publish", key, "rcvp=%lu, rcvb=%lu, sentp=%lu, sentb=%lu",(unsigned long)(ss->received_packets), (unsigned long)(ss->received_bytes),(unsigned long)(ss->sent_packets),(unsigned long)(ss->sent_bytes));
 				}
 #endif
 				ss->t_received_packets += ss->received_packets;
