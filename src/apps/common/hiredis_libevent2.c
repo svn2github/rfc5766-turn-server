@@ -51,28 +51,7 @@ struct redisLibeventEvents
 	struct event_base *base;
 	struct event *rev, *wev;
 	int rev_set, wev_set;
-	struct bufferevent *in_buf;
-	struct bufferevent *out_buf;
 };
-
-static redisAsyncContext *defaultAsyncContext = NULL;
-
-typedef struct _redis_conn_data_t {
-	int is_set;
-	char *ip;
-	int port;
-	char *pwd;
-	int db;
-} redis_conn_data_t;
-
-static redis_conn_data_t redis_conn_data = {0,NULL,0,NULL,0};
-
-static redisAsyncContext* get_AsyncContext(const char *realm)
-{
-	//TODO
-	UNUSED_ARG(realm);
-	return defaultAsyncContext;
-}
 
 ///////////// Messages ////////////////////////////
 
@@ -160,52 +139,14 @@ static void redisLibeventCleanup(void *privdata)
 
 ///////////////////////// Send-receive ///////////////////////////
 
-static void send_message_for_redis(redisAsyncContext *ac, const struct redis_message *rm)
+void send_message_to_redis(redis_context_handle rch, const char *command, const char *key, const char *format,...)
 {
-
-	if(!ac)
+	if(!rch) {
 		return;
+	} else {
 
-	struct redisLibeventEvents *e = (struct redisLibeventEvents *)(ac->ev.data);
+		redisAsyncContext *ac=(redisAsyncContext*)rch;
 
-	if(e && rm) {
-		struct evbuffer *output = bufferevent_get_output(e->out_buf);
-		if(evbuffer_add(output,rm,sizeof(*rm))<0) {
-			fprintf(stderr,"%s: Weird buffer error\n",__FUNCTION__);
-		}
-	}
-}
-
-static void receive_message_for_redis(struct bufferevent *bev, void *ptr)
-{
-	if(!ptr)
-		return;
-
-	struct redisLibeventEvents *e = (struct redisLibeventEvents*)ptr;
-	redisAsyncContext *ac = e->context;
-
-	struct redis_message rm;
-	int n = 0;
-	struct evbuffer *input = bufferevent_get_input(bev);
-	while ((n = evbuffer_remove(input, &rm, sizeof(rm))) > 0) {
-		if (n != sizeof(rm)) {
-			fprintf(stderr,"%s: Weird buffer error: size=%d\n",__FUNCTION__,n);
-			continue;
-		}
-
-		if(ac) {
-			redisAsyncCommand(ac, NULL, e, rm.format, rm.arg);
-		}
-	}
-}
-
-void send_message_to_redis(const char* realm, const char *command, const char *key, const char *format,...)
-{
-	redisAsyncContext *ac=(redisAsyncContext *)get_AsyncContext(realm);;
-	if(!ac)
-		return;
-
-	if(ac) {
 		struct redis_message rm;
 
 		snprintf(rm.format,sizeof(rm.format)-3,"%s %s ", command, key);
@@ -216,7 +157,9 @@ void send_message_to_redis(const char* realm, const char *command, const char *k
 		vsnprintf(rm.arg, sizeof(rm.arg)-1, format, args);
 		va_end (args);
 
-		send_message_for_redis(ac, &rm);
+		struct redisLibeventEvents *e = (struct redisLibeventEvents *)(ac->ev.data);
+
+		redisAsyncCommand(ac, NULL, e, rm.format, rm.arg);
 	}
 }
 
@@ -239,19 +182,17 @@ static void deleteKeysCallback(redisAsyncContext *c, void *reply0, void *privdat
 	}
 }
 
-void delete_redis_keys(const char *realm, const char *key_pattern)
+static void delete_redis_keys(redis_context_handle rch, const char *key_pattern)
 {
-	redisAsyncContext *ac = get_AsyncContext(realm);
+	redisAsyncContext *ac = (redisAsyncContext*)rch;
 	if(ac) {
 		redisAsyncCommand(ac, deleteKeysCallback, ac->ev.data, "keys %s", key_pattern);
 	}
 }
 
-void set_realm_async_context(const char *realm, redis_context_handle rch)
+void turn_report_allocation_delete_all(redis_context_handle rch)
 {
-	//TODO
-	UNUSED_ARG(realm);
-	defaultAsyncContext = (redisAsyncContext*)rch;
+	delete_redis_keys(rch, "turn/user/*/allocation/*/status");
 }
 
 ///////////////////////// Attach /////////////////////////////////
@@ -271,14 +212,6 @@ redis_context_handle redisLibeventAttach(struct event_base *base, char *ip0, int
   int port = DEFAULT_REDIS_PORT;
   if(port0>0)
 	  port=port0;
-
-  if(!redis_conn_data.is_set) {
-	  redis_conn_data.db = db;
-	  redis_conn_data.ip = strdup(ip);
-	  redis_conn_data.port = port;
-	  redis_conn_data.pwd = strdup(pwd);
-	  redis_conn_data.is_set = 1;
-  }
   
   ac = redisAsyncConnect(ip, port);
   if (ac->err) {
@@ -319,17 +252,6 @@ redis_context_handle redisLibeventAttach(struct event_base *base, char *ip0, int
   
   event_add(e->wev, NULL);
   e->wev_set = 1;
-
-  struct bufferevent *pair[2];
-  int opts = BEV_OPT_DEFER_CALLBACKS | BEV_OPT_UNLOCK_CALLBACKS;
-
-  opts |= BEV_OPT_THREADSAFE;
-
-  bufferevent_pair_new(base, opts, pair);
-  e->in_buf = pair[0];
-  e->out_buf = pair[1];
-  bufferevent_setcb(e->in_buf, receive_message_for_redis, NULL, NULL, e);
-  bufferevent_enable(e->in_buf, EV_READ);
 
   //Authentication
   if(pwd)

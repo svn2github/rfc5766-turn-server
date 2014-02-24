@@ -152,6 +152,9 @@ struct _ioa_engine
   size_t relays_number;
   size_t relay_addr_counter;
   ioa_addr *relay_addrs;
+#if !defined(TURN_NO_HIREDIS)
+  redis_context_handle rch;
+#endif
 };
 
 #define SOCKET_MAGIC (0xABACADEF)
@@ -230,7 +233,11 @@ ioa_engine_handle create_ioa_engine(super_memory_t *sm,
 				struct event_base *eb, turnipports* tp,
 				const s08bits* relay_if,
 				size_t relays_number, s08bits **relay_addrs, int default_relays,
-				int verbose);
+				int verbose
+#if !defined(TURN_NO_HIREDIS)
+				,const char* redis_report_connection_string
+#endif
+				);
 
 void set_ssl_ctx(ioa_engine_handle e,
 		SSL_CTX *tls_ctx_ssl23,

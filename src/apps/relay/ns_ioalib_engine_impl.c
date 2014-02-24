@@ -228,7 +228,11 @@ static void timer_handler(ioa_engine_handle e, void* arg) {
 ioa_engine_handle create_ioa_engine(super_memory_t *sm,
 				struct event_base *eb, turnipports *tp, const s08bits* relay_ifname,
 				size_t relays_number, s08bits **relay_addrs, int default_relays,
-				int verbose)
+				int verbose
+#if !defined(TURN_NO_HIREDIS)
+				,const char* redis_report_connection_string
+#endif
+				)
 {
 	static int capabilities_checked = 0;
 
@@ -269,6 +273,12 @@ ioa_engine_handle create_ioa_engine(super_memory_t *sm,
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"IO method (engine own thread): %s\n",event_base_get_method(e->event_base));
 			e->deallocate_eb = 1;
 		}
+
+#if !defined(TURN_NO_HIREDIS)
+		if(redis_report_connection_string && *redis_report_connection_string) {
+			e->rch = get_redis_async_connection(e->event_base, redis_report_connection_string);
+		}
+#endif
 
 		{
 			int t;
@@ -3121,15 +3131,15 @@ void turn_report_allocation_set(void *a, turn_time_t lifetime, int refresh)
 						TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"%s: session id=%018llu, username=<%s>, lifetime=%lu\n", status, (unsigned long long)ss->id, (char*)ss->username, (unsigned long)lifetime);
 					}
 				}
-			}
 #if !defined(TURN_NO_HIREDIS)
-			{
-				char key[1024];
-				snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/status",(char*)ss->username, (unsigned long long)ss->id);
-				send_message_to_redis(ss->realm_options.name, "set", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
-				send_message_to_redis(ss->realm_options.name, "publish", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
-			}
+				{
+					char key[1024];
+					snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/status",(char*)ss->username, (unsigned long long)ss->id);
+					send_message_to_redis(e->rch, "set", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
+					send_message_to_redis(e->rch, "publish", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
+				}
 #endif
+			}
 		}
 	}
 }
@@ -3145,24 +3155,17 @@ void turn_report_allocation_delete(void *a)
 				if(e && e->verbose) {
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"delete: session id=%018llu, username=<%s>\n", (unsigned long long)ss->id, (char*)ss->username);
 				}
-			}
 #if !defined(TURN_NO_HIREDIS)
-			{
-				char key[1024];
-				snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/status",(char*)ss->username, (unsigned long long)ss->id);
-				send_message_to_redis(ss->realm_options.name, "del", key, "");
-				send_message_to_redis(ss->realm_options.name, "publish", key, "deleted");
-			}
+				{
+					char key[1024];
+					snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/status",(char*)ss->username, (unsigned long long)ss->id);
+					send_message_to_redis(e->rch, "del", key, "");
+					send_message_to_redis(e->rch, "publish", key, "deleted");
+				}
 #endif
+			}
 		}
 	}
-}
-
-void turn_report_allocation_delete_all(void)
-{
-#if !defined(TURN_NO_HIREDIS)
-	delete_redis_keys(NULL, "turn/user/*/allocation/*/status");
-#endif
 }
 
 void turn_report_session_usage(void *session)
@@ -3180,7 +3183,7 @@ void turn_report_session_usage(void *session)
 				{
 					char key[1024];
 					snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/traffic",(char*)ss->username, (unsigned long long)(ss->id));
-					send_message_to_redis(ss->realm_options.name, "publish", key, "rcvp=%lu, rcvb=%lu, sentp=%lu, sentb=%lu",(unsigned long)(ss->received_packets), (unsigned long)(ss->received_bytes),(unsigned long)(ss->sent_packets),(unsigned long)(ss->sent_bytes));
+					send_message_to_redis(e->rch, "publish", key, "rcvp=%lu, rcvb=%lu, sentp=%lu, sentb=%lu",(unsigned long)(ss->received_packets), (unsigned long)(ss->received_bytes),(unsigned long)(ss->sent_packets),(unsigned long)(ss->sent_bytes));
 				}
 #endif
 				ss->t_received_packets += ss->received_packets;

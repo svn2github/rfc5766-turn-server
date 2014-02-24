@@ -86,7 +86,11 @@ NEV_UNKNOWN,
 LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
 0,NULL,0,NULL,DEFAULT_GENERAL_RELAY_SERVERS_NUMBER,0,
 ////////////// Auth server /////////////////////////////////////
-{NULL,NULL,NULL,0},
+{NULL,NULL,NULL,0
+#if !defined(TURN_NO_HIREDIS)
+,NULL
+#endif
+},
 /////////////// AUX SERVERS ////////////////
 {NULL,0,{0,NULL}},0,
 /////////////// ALTERNATE SERVERS ////////////////
@@ -1806,7 +1810,7 @@ int main(int argc, char **argv)
 
 	drop_privileges();
 
-	run_listener_server(turn_params.listener.event_base);
+	run_listener_server(&(turn_params.listener));
 
 	return 0;
 }

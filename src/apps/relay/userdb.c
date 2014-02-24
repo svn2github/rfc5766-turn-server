@@ -540,7 +540,7 @@ static void RyconninfoFree(Ryconninfo *co) {
 	}
 }
 
-static Ryconninfo *RyconninfoParse(char *userdb, char **errmsg)
+static Ryconninfo *RyconninfoParse(const char *userdb, char **errmsg)
 {
 	Ryconninfo *co = (Ryconninfo*) turn_malloc(sizeof(Ryconninfo));
 	ns_bzero(co,sizeof(Ryconninfo));
@@ -634,34 +634,36 @@ static Ryconninfo *RyconninfoParse(char *userdb, char **errmsg)
 	return co;
 }
 
-redis_context_handle get_redis_async_connection(struct event_base *base, char* connection_string)
+redis_context_handle get_redis_async_connection(struct event_base *base, const char* connection_string)
 {
 	redis_context_handle ret = NULL;
 	char *errmsg = NULL;
-	Ryconninfo *co = RyconninfoParse(connection_string, &errmsg);
-	if (!co) {
-		if (errmsg) {
+	if(base  && connection_string  && connection_string[0]) {
+		Ryconninfo *co = RyconninfoParse(connection_string, &errmsg);
+		if (!co) {
+			if (errmsg) {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", connection_string, errmsg);
+				turn_free(errmsg,strlen(errmsg)+1);
+			} else {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", connection_string);
+			}
+		} else if (errmsg) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", connection_string, errmsg);
 			turn_free(errmsg,strlen(errmsg)+1);
+			RyconninfoFree(co);
 		} else {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error\n", connection_string);
-		}
-	} else if (errmsg) {
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot open Redis DB connection <%s>, connection string format error: %s\n", connection_string, errmsg);
-		turn_free(errmsg,strlen(errmsg)+1);
-		RyconninfoFree(co);
-	} else {
 
-		ret = redisLibeventAttach(base, co->host, co->port, co->password, atoi(co->dbname));
+			ret = redisLibeventAttach(base, co->host, co->port, co->password, atoi(co->dbname));
 
-		if (!ret) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot initialize Redis DB connection\n");
-		} else {
-			if (!donot_print_connection_success) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB async connection success: %s\n", connection_string);
+			if (!ret) {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot initialize Redis DB connection\n");
+			} else {
+				if (!donot_print_connection_success) {
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB async connection success: %s\n", connection_string);
+				}
 			}
+			RyconninfoFree(co);
 		}
-		RyconninfoFree(co);
 	}
 
 	return ret;

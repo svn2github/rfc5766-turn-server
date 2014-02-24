@@ -50,10 +50,9 @@ typedef void* redis_context_handle;
 
 redis_context_handle redisLibeventAttach(struct event_base *base, char *ip, int port, char *pwd, int db);
 
-void set_realm_async_context(const char *realm, redis_context_handle rch);
-void send_message_to_redis(const char *realm, const char *command, const char *key, const char *format,...);
+void send_message_to_redis(redis_context_handle rch, const char *command, const char *key, const char *format,...);
 
-void delete_redis_keys(const char *realm, const char *key_pattern);
+void turn_report_allocation_delete_all(redis_context_handle rch);
 
 #ifdef __cplusplus
 }

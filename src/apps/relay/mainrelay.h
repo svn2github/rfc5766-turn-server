@@ -172,6 +172,9 @@ struct auth_server {
 	struct bufferevent *in_buf;
 	struct bufferevent *out_buf;
 	pthread_t thr;
+#if !defined(TURN_NO_HIREDIS)
+	redis_context_handle rch;
+#endif
 };
 
 /////////// PARAMS //////////////////////////////////
@@ -342,7 +345,7 @@ void send_auth_message_to_auth_server(struct auth_message *am);
 
 void init_listener(void);
 void setup_server(void);
-void run_listener_server(struct event_base *eb);
+void run_listener_server(struct listener_server *ls);
 
 ///////////////////////////////
 

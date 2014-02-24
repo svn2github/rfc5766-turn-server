@@ -184,7 +184,7 @@ int add_ip_list_range(char* range, ip_range_list_t * list);
 
 #if !defined(TURN_NO_HIREDIS)
 #include "hiredis_libevent2.h"
-redis_context_handle get_redis_async_connection(struct event_base *base, char* connection_string);
+redis_context_handle get_redis_async_connection(struct event_base *base, const char* connection_string);
 #endif
 
 ////////////////////////////////////////////

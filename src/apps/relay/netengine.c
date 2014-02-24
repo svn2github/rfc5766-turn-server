@@ -47,7 +47,7 @@ static struct relay_server **udp_relay_servers = NULL;
 
 //////////////////////////////////////////////
 
-static void run_events(struct event_base *eb);
+static void run_events(struct event_base *eb, ioa_engine_handle e);
 static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int to_set_rfc5780);
 
 /////////////// AUX SERVERS ////////////////
@@ -665,7 +665,11 @@ static ioa_engine_handle create_new_listener_engine(void)
 	TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"IO method (udp listener/relay thread): %s\n",event_base_get_method(eb));
 	super_memory_t* sm = new_super_memory_region();
 	ioa_engine_handle e = create_ioa_engine(sm, eb, turn_params.listener.tp, turn_params.relay_ifname, turn_params.relays_number, turn_params.relay_addrs,
-			turn_params.default_relays, turn_params.verbose);
+			turn_params.default_relays, turn_params.verbose
+#if !defined(TURN_NO_HIREDIS)
+			,turn_params.redis_statsdb
+#endif
+	);
 	set_ssl_ctx(e, turn_params.tls_ctx_ssl23, turn_params.tls_ctx_v1_0,
 #if defined(SSL_TXT_TLSV1_1)
 					turn_params.tls_ctx_v1_1,
@@ -694,7 +698,7 @@ static void *run_udp_listener_thread(void *arg)
   dtls_listener_relay_server_type *server = (dtls_listener_relay_server_type *)arg;
 
   while(always_true && server) {
-    run_events(get_engine(server)->event_base);
+    run_events(NULL, get_engine(server));
   }
 
   return arg;
@@ -712,7 +716,11 @@ static void setup_listener(void)
 
 	turn_params.listener.ioa_eng = create_ioa_engine(sm, turn_params.listener.event_base, turn_params.listener.tp,
 			turn_params.relay_ifname, turn_params.relays_number, turn_params.relay_addrs,
-			turn_params.default_relays, turn_params.verbose);
+			turn_params.default_relays, turn_params.verbose
+#if !defined(TURN_NO_HIREDIS)
+			,turn_params.redis_statsdb
+#endif
+			);
 
 	if(!turn_params.listener.ioa_eng)
 		exit(-1);
@@ -727,13 +735,6 @@ static void setup_listener(void)
 					turn_params.dtls_ctx);
 
 	turn_params.listener.rtcpmap = rtcp_map_create(turn_params.listener.ioa_eng);
-
-#if !defined(TURN_NO_HIREDIS)
-	if(turn_params.use_redis_statsdb) {
-		set_realm_async_context(NULL, get_redis_async_connection(turn_params.listener.event_base, turn_params.redis_statsdb));
-		turn_report_allocation_delete_all();
-	}
-#endif
 
 	ioa_engine_set_rtcp_map(turn_params.listener.ioa_eng, turn_params.listener.rtcpmap);
 
@@ -1234,8 +1235,10 @@ static int get_alt_addr(ioa_addr *addr, ioa_addr *alt_addr)
 	return -1;
 }
 
-static void run_events(struct event_base *eb)
+static void run_events(struct event_base *eb, ioa_engine_handle e)
 {
+	if(!eb && e)
+		eb = e->event_base;
 
 	if (!eb)
 		return;
@@ -1248,9 +1251,14 @@ static void run_events(struct event_base *eb)
 	event_base_loopexit(eb, &timeout);
 
 	event_base_dispatch(eb);
+
+#if !defined(TURN_NO_HIREDIS)
+	if(e)
+		send_message_to_redis(e->rch, "publish", "__XXX__", "__YYY__");
+#endif
 }
 
-void run_listener_server(struct event_base *eb)
+void run_listener_server(struct listener_server *ls)
 {
 	unsigned int cycle = 0;
 	while (!turn_params.stop_turn_server) {
@@ -1261,7 +1269,7 @@ void run_listener_server(struct event_base *eb)
 			}
 		}
 
-		run_events(eb);
+		run_events(ls->event_base, ls->ioa_eng);
 
 		rollover_logfile();
 	}
@@ -1279,7 +1287,11 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 		rs->event_base = turn_event_base_new();
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"IO method (general relay thread): %s\n",event_base_get_method(rs->event_base));
 		rs->ioa_eng = create_ioa_engine(rs->sm, rs->event_base, turn_params.listener.tp, turn_params.relay_ifname,
-				turn_params.relays_number, turn_params.relay_addrs, turn_params.default_relays, turn_params.verbose);
+				turn_params.relays_number, turn_params.relay_addrs, turn_params.default_relays, turn_params.verbose
+#if !defined(TURN_NO_HIREDIS)
+			,turn_params.redis_statsdb
+#endif
+		);
 		set_ssl_ctx(rs->ioa_eng, turn_params.tls_ctx_ssl23, turn_params.tls_ctx_v1_0,
 #if defined(SSL_TXT_TLSV1_1)
 						turn_params.tls_ctx_v1_1,
@@ -1357,7 +1369,7 @@ static void *run_general_relay_thread(void *arg)
 #endif
 
   while(always_true) {
-    run_events(rs->event_base);
+    run_events(rs->event_base, rs->ioa_eng);
   }
   
   return arg;
@@ -1395,7 +1407,8 @@ static int run_auth_server_flag = 1;
 
 static void* run_auth_server_thread(void *arg)
 {
-	struct event_base *eb = (struct event_base*)arg;
+	struct auth_server *authserver = (struct auth_server*)arg;
+	struct event_base *eb = authserver->event_base;
 
 #if !defined(TURN_NO_THREAD_BARRIERS)
 	if((pthread_barrier_wait(&barrier)<0) && errno)
@@ -1405,12 +1418,12 @@ static void* run_auth_server_thread(void *arg)
 	ignore_sigpipe();
 
 	while(run_auth_server_flag) {
-		run_events(eb);
+		run_events(eb,NULL);
 		read_userdb_file(0);
 		update_white_and_black_lists();
 		auth_ping();
 #if !defined(TURN_NO_HIREDIS)
-		send_message_to_redis(NULL, "publish", "__XXX__", "__YYY__");
+		send_message_to_redis(authserver->rch, "publish", "__XXX__", "__YYY__");
 #endif
 	}
 
@@ -1435,7 +1448,12 @@ static void setup_auth_server(void)
 	bufferevent_setcb(turn_params.authserver.in_buf, auth_server_receive_message, NULL, NULL, &turn_params.authserver);
 	bufferevent_enable(turn_params.authserver.in_buf, EV_READ);
 
-	if(pthread_create(&(turn_params.authserver.thr), NULL, run_auth_server_thread, turn_params.authserver.event_base)<0) {
+#if !defined(TURN_NO_HIREDIS)
+	turn_params.authserver.rch = get_redis_async_connection(turn_params.authserver.event_base, turn_params.redis_statsdb);
+	turn_report_allocation_delete_all(turn_params.authserver.rch);
+#endif
+
+	if(pthread_create(&(turn_params.authserver.thr), NULL, run_auth_server_thread, &(turn_params.authserver))<0) {
 		perror("Cannot create auth thread\n");
 		exit(-1);
 	}
@@ -1454,7 +1472,7 @@ static void* run_cli_server_thread(void *arg)
 #endif
 
 	while(cliserver.event_base) {
-		run_events(cliserver.event_base);
+		run_events(cliserver.event_base,NULL);
 	}
 
 	return arg;
