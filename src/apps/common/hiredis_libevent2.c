@@ -193,6 +193,7 @@ static void delete_redis_keys(redis_context_handle rch, const char *key_pattern)
 void turn_report_allocation_delete_all(redis_context_handle rch)
 {
 	delete_redis_keys(rch, "turn/user/*/allocation/*/status");
+	delete_redis_keys(rch, "turn/realm/*/user/*/allocation/*/status");
 }
 
 ///////////////////////// Attach /////////////////////////////////
