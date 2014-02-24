@@ -3092,8 +3092,8 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 						if(get_canonic_origin(o,corigin,STUN_MAX_ORIGIN_SIZE)>=0) {
 							strncpy(ss->origin,corigin,STUN_MAX_ORIGIN_SIZE);
 						} else {
-							TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING,
-									"%s: wrong original format: %s, ignored\n",
+							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR,
+									"%s: Wrong original format: %s, ignored\n",
 									__FUNCTION__, o);
 							ss->origin[0]=0;
 						}

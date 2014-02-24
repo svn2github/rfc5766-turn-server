@@ -538,42 +538,44 @@ int get_canonic_origin(const char* o, char *co, int sz)
 		struct evhttp_uri *uri = evhttp_uri_parse(o);
 		if(uri) {
 			const char *scheme = evhttp_uri_get_scheme(uri);
-			size_t schlen = strlen(scheme);
-			if(scheme && scheme[0] && (schlen<(size_t)sz) && (schlen<STUN_MAX_ORIGIN_SIZE)) {
-				const char *host = evhttp_uri_get_host(uri);
-				if(host && host[0]) {
-					char otmp[STUN_MAX_ORIGIN_SIZE+STUN_MAX_ORIGIN_SIZE];
-					ns_bcopy(scheme,otmp,schlen);
-					otmp[schlen]=0;
+			if(scheme && scheme[0]) {
+				size_t schlen = strlen(scheme);
+				if((schlen<(size_t)sz) && (schlen<STUN_MAX_ORIGIN_SIZE)) {
+					const char *host = evhttp_uri_get_host(uri);
+					if(host && host[0]) {
+						char otmp[STUN_MAX_ORIGIN_SIZE+STUN_MAX_ORIGIN_SIZE];
+						ns_bcopy(scheme,otmp,schlen);
+						otmp[schlen]=0;
 
-					{
-						char *s = otmp;
-						while(*s) {
-							*s = (char)tolower(*s);
-							++s;
+						{
+							char *s = otmp;
+							while(*s) {
+								*s = (char)tolower(*s);
+								++s;
+							}
 						}
-					}
 
-					int port = evhttp_uri_get_port(uri);
-					if(port<1) {
-						port = get_default_protocol_port(otmp, schlen);
-					}
-					if(port>0)
-						snprintf(otmp+schlen,sizeof(otmp)-schlen-1,"://%s:%d",host,port);
-					else
-						snprintf(otmp+schlen,sizeof(otmp)-schlen-1,"://%s",host);
-
-					{
-						char *s = otmp + schlen + 3;
-						while(*s) {
-							*s = (char)tolower(*s);
-							++s;
+						int port = evhttp_uri_get_port(uri);
+						if(port<1) {
+							port = get_default_protocol_port(otmp, schlen);
 						}
-					}
+						if(port>0)
+							snprintf(otmp+schlen,sizeof(otmp)-schlen-1,"://%s:%d",host,port);
+						else
+							snprintf(otmp+schlen,sizeof(otmp)-schlen-1,"://%s",host);
 
-					strncpy(co,otmp,sz);
-					co[sz]=0;
-					ret = 0;
+						{
+							char *s = otmp + schlen + 3;
+							while(*s) {
+								*s = (char)tolower(*s);
+								++s;
+							}
+						}
+
+						strncpy(co,otmp,sz);
+						co[sz]=0;
+						ret = 0;
+					}
 				}
 			}
 			evhttp_uri_free(uri);

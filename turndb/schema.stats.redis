@@ -9,17 +9,17 @@ allocations under the same user name.
 The same keys are used and the same status is reported, with the addition of status "deleted".
 The user session that is interested in those statuses, must subscribe to the events as:
 
-	psubscribe turn/user/*/allocation/*/status
+	psubscribe turn/realm/*/user/*/allocation/*/status
 
 3) Allocation traffic information is reported through the "publish" mechanism.
 The keys are "turn/user/<username>/allocation/<id>/traffic". The application that is interested 
 in the traffic information must subscribe to the events as:
 
-	psubscribe turn/user/*/allocation/*/traffic
+	psubscribe turn/realm/*/user/*/allocation/*/traffic
 	
 Or, to receive all allocation events:
 
-	psubscribe turn/user/*/allocation/*
+	psubscribe turn/realm/*/user/*/allocation/*
 
 4) Redis database configuration parameters
 
