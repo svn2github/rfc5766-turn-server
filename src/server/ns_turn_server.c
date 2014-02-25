@@ -3089,14 +3089,13 @@ static int handle_turn_command(turn_turnserver *server, ts_ur_super_session *ss,
 						ns_bcopy(stun_attr_get_value(sar),o,sarlen);
 						o[sarlen]=0;
 						char *corigin = (char*)turn_malloc(STUN_MAX_ORIGIN_SIZE+1);
-						if(get_canonic_origin(o,corigin,STUN_MAX_ORIGIN_SIZE)>=0) {
-							strncpy(ss->origin,corigin,STUN_MAX_ORIGIN_SIZE);
-						} else {
+						corigin[0]=0;
+						if(get_canonic_origin(o,corigin,STUN_MAX_ORIGIN_SIZE)<0) {
 							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR,
-									"%s: Wrong original format: %s, ignored\n",
+									"%s: Wrong origin format: %s\n",
 									__FUNCTION__, o);
-							ss->origin[0]=0;
 						}
+						strncpy(ss->origin,corigin,STUN_MAX_ORIGIN_SIZE);
 						turn_free(corigin,sarlen+1);
 						turn_free(o,sarlen+1);
 						get_realm_options_by_origin(ss->origin,&(ss->realm_options));

@@ -519,9 +519,11 @@ int get_default_protocol_port(const char* scheme, size_t slen)
 				return 23;
 			if(!memcmp("radius",scheme,6))
 				return 1645;
+			break;
 		case 7:
 			if(!memcmp("svn+ssh",scheme,7))
 				return 22;
+			break;
 		default:
 			return 0;
 		};
@@ -580,6 +582,11 @@ int get_canonic_origin(const char* o, char *co, int sz)
 			}
 			evhttp_uri_free(uri);
 		}
+	}
+
+	if(ret<0) {
+		strncpy(co,o,sz);
+		co[sz]=0;
 	}
 
 	return ret;
