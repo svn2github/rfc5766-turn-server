@@ -748,15 +748,9 @@ static void cli_print_configuration(struct cli_session* cs)
 
 		cli_print_uint(cs,(unsigned long)cs->rp->status.total_current_allocs,"total-current-allocs",0);
 
-		if(cs->realm[0]) {
-			cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.total_quota,"total-quota",0);
-			cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.user_quota,"user-quota",0);
-			cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.max_bps,"max-bps",0);
-		} else {
-			cli_print_uint(cs,(unsigned long)turn_params.perf_options.total_quota,"total-quota",0);
-			cli_print_uint(cs,(unsigned long)turn_params.perf_options.user_quota,"user-quota",0);
-			cli_print_uint(cs,(unsigned long)turn_params.perf_options.max_bps,"max-bps",0);
-		}
+		cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.total_quota,"total-quota",0);
+		cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.user_quota,"user-quota",0);
+		cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.max_bps,"max-bps",0);
 
 		myprintf(cs,"\n");
 
