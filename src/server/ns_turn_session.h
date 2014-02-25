@@ -44,16 +44,22 @@ extern "C" {
 
 typedef unsigned long band_limit_t;
 
-struct _realm_options {
-
-	s08bits name[STUN_MAX_REALM_SIZE + 1];
-
-	int use_auth_secret_with_timestamp;
+typedef struct _perf_options_t {
 
 	vint total_quota;
 	vint user_quota;
 
 	band_limit_t max_bps;
+
+} perf_options_t;
+
+struct _realm_options_t {
+
+	s08bits name[STUN_MAX_REALM_SIZE + 1];
+
+	int use_auth_secret_with_timestamp;
+
+	perf_options_t perf_options;
 };
 
 //////////////// session info //////////////////////
@@ -99,7 +105,7 @@ typedef struct {
   mobile_id_t mobile_id;
   char s_mobile_id[33];
   /* Realm */
-  realm_options realm_options;
+  realm_options_t realm_options;
   int realm_set;
   s08bits origin[STUN_MAX_ORIGIN_SIZE + 1];
 } ts_ur_super_session;

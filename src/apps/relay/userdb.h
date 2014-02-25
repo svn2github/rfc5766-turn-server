@@ -52,26 +52,26 @@ extern "C" {
 
 //////////// REALM //////////////
 
-struct _realm_status;
-typedef struct _realm_status realm_status;
+struct _realm_status_t;
+typedef struct _realm_status_t realm_status_t;
 
-struct _realm_params;
-typedef struct _realm_params realm_params;
+struct _realm_params_t;
+typedef struct _realm_params_t realm_params_t;
 
-struct _realm_status {
+struct _realm_status_t {
 
 	vint total_current_allocs;
 	ur_string_map *alloc_counters;
 
 };
 
-struct _realm_params {
+struct _realm_params_t {
 
 	int is_default_realm;
 
-	realm_options options;
+	realm_options_t options;
 
-	realm_status status;
+	realm_status_t status;
 
 };
 

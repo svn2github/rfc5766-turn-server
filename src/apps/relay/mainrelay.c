@@ -100,6 +100,7 @@ LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
 /////////////// MISC PARAMS ////////////////
 0,0,0,0,0,SHATYPE_SHA1,':',0,0,TURN_CREDENTIALS_NONE,
 ///////////// Users DB //////////////
+{0,0,0},
 { TURN_USERDB_TYPE_FILE, {"\0",NULL}, {0,NULL,NULL, {NULL,0}} }
 
 };
@@ -1054,14 +1055,14 @@ static void set_option(int c, char *value)
 		STRCPY(get_realm(NULL)->options.name,value);
 		break;
 	case 'q':
-		get_realm(NULL)->options.user_quota = atoi(value);
+		turn_params.perf_options.user_quota = atoi(value);
 		break;
 	case 'Q':
-		get_realm(NULL)->options.total_quota = atoi(value);
+		turn_params.perf_options.total_quota = atoi(value);
 		break;
 	case 's':
-		get_realm(NULL)->options.max_bps = (band_limit_t)atol(value);
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "%lu bytes per second is allowed per session\n",(unsigned long)get_realm(NULL)->options.max_bps);
+		turn_params.perf_options.max_bps = (band_limit_t)atol(value);
+		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "%lu bytes per second is allowed per session\n",(unsigned long)turn_params.perf_options.max_bps);
 		break;
 	case NO_UDP_OPT:
 		turn_params.no_udp = get_bool_value(value);

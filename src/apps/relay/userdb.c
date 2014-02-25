@@ -76,30 +76,31 @@
 
 //////////// REALM //////////////
 
-static realm_params *default_realm_params_ptr = NULL;
-static const realm_params _default_realm_params =
+static realm_params_t *default_realm_params_ptr = NULL;
+static const realm_params_t _default_realm_params =
 {
   1,
   {
 	"\0", /* name */
-    0,0,0,0
+    0,
+    {0,0,0}
   },
   {0,NULL}
 };
 
 static ur_string_map *realms = NULL;
 
-realm_params* create_realm(char* name)
+realm_params_t* create_realm(char* name)
 {
-	realm_params *ret = NULL;
+	realm_params_t *ret = NULL;
 
 	if((name == NULL)||(name[0]==0)) {
 		ret = default_realm_params_ptr;
 		if(ret) {
 			return ret;
 		}
-		default_realm_params_ptr = (realm_params*)malloc(sizeof(realm_params));
-		ns_bcopy(&_default_realm_params,default_realm_params_ptr,sizeof(realm_params));
+		default_realm_params_ptr = (realm_params_t*)malloc(sizeof(realm_params_t));
+		ns_bcopy(&_default_realm_params,default_realm_params_ptr,sizeof(realm_params_t));
 		realms = ur_string_map_create(NULL);
 		ret = default_realm_params_ptr;
 	} else {
@@ -111,13 +112,13 @@ realm_params* create_realm(char* name)
 
 		ur_string_map_value_type value = 0;
 		if (!ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
-			ret = (realm_params*)turn_malloc(sizeof(realm_params));
-			ns_bcopy(default_realm_params_ptr,ret,sizeof(realm_params));
+			ret = (realm_params_t*)turn_malloc(sizeof(realm_params_t));
+			ns_bcopy(default_realm_params_ptr,ret,sizeof(realm_params_t));
 			STRCPY(ret->options.name,name);
 			value = (ur_string_map_value_type)ret;
 			ur_string_map_put(realms, (ur_string_map_key_type) name, value);
 		} else {
-			ret = (realm_params*)value;
+			ret = (realm_params_t*)value;
 			return ret;
 		}
 	}
@@ -127,40 +128,40 @@ realm_params* create_realm(char* name)
 	return ret;
 }
 
-void get_default_realm_options(realm_options* ro)
+void get_default_realm_options(realm_options_t* ro)
 {
 	if(ro)
-		ns_bcopy(&(default_realm_params_ptr->options),ro,sizeof(realm_options));
+		ns_bcopy(&(default_realm_params_ptr->options),ro,sizeof(realm_options_t));
 }
 
-realm_params* get_realm(char* name)
+realm_params_t* get_realm(char* name)
 {
 	if((name == NULL)||(name[0]==0)||(!strcmp(name,default_realm_params_ptr->options.name)))
 		return default_realm_params_ptr;
 	else {
 	  ur_string_map_value_type value = 0;
 	  if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
-		  return (realm_params*)value;
+		  return (realm_params_t*)value;
 	  }
 	}
 
 	return default_realm_params_ptr;
 }
 
-void get_realm_params(char* name, realm_params *rp)
+void get_realm_params(char* name, realm_params_t *rp)
 {
 	if((name != NULL)&&name[0]&&strcmp(name,default_realm_params_ptr->options.name)) {
 	  ur_string_map_value_type value = 0;
 	  if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
-		  ns_bcopy(value,rp,sizeof(realm_params));
+		  ns_bcopy(value,rp,sizeof(realm_params_t));
 		  return;
 	  }
 	}
 
-	ns_bcopy(default_realm_params_ptr,rp,sizeof(realm_params));
+	ns_bcopy(default_realm_params_ptr,rp,sizeof(realm_params_t));
 }
 
-void get_realm_options_by_origin(char *origin, realm_options* ro)
+void get_realm_options_by_origin(char *origin, realm_options_t* ro)
 {
 	//TODO
 	UNUSED_ARG(origin);
@@ -1289,7 +1290,7 @@ int check_new_allocation_quota(u08bits *user)
 	if (user) {
 		u08bits *username = (u08bits*)get_real_username((char*)user);
 		ur_string_map_lock(get_realm(NULL)->status.alloc_counters);
-		if (get_realm(NULL)->options.total_quota && (get_realm(NULL)->status.total_current_allocs >= get_realm(NULL)->options.total_quota)) {
+		if (get_realm(NULL)->options.perf_options.total_quota && (get_realm(NULL)->status.total_current_allocs >= get_realm(NULL)->options.perf_options.total_quota)) {
 			ret = -1;
 		} else {
 			ur_string_map_value_type value = 0;
@@ -1298,7 +1299,7 @@ int check_new_allocation_quota(u08bits *user)
 				ur_string_map_put(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, value);
 				++(get_realm(NULL)->status.total_current_allocs);
 			} else {
-				if ((get_realm(NULL)->options.user_quota) && ((size_t) value >= (size_t)(get_realm(NULL)->options.user_quota))) {
+				if ((get_realm(NULL)->options.perf_options.user_quota) && ((size_t) value >= (size_t)(get_realm(NULL)->options.perf_options.user_quota))) {
 					ret = -1;
 				} else {
 					value = (ur_string_map_value_type)(((size_t)value) + 1);

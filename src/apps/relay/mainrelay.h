@@ -306,6 +306,8 @@ typedef struct _turn_params_ {
 
 /////// Users DB ///////////
 
+  perf_options_t perf_options;
+
   default_users_db_t default_users_db;
 
 } turn_params_t;
