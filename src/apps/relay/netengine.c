@@ -1319,7 +1319,7 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 
 	init_turn_server(&(rs->server),
 			 rs->id, turn_params.verbose,
-			 rs->ioa_eng, 0,
+			 rs->ioa_eng, turn_params.ct, 0,
 			 turn_params.fingerprint, DONT_FRAGMENT_SUPPORTED,
 			 start_user_check,
 			 check_new_allocation_quota,

@@ -803,9 +803,9 @@ static void cli_print_configuration(struct cli_session* cs)
 			cli_print_str(cs,cs->realm,"CLI session realm",0);
 		if(cs->origin[0])
 			cli_print_str(cs,cs->origin,"CLI session origin",0);
-		if(cs->rp->options.ct == TURN_CREDENTIALS_LONG_TERM)
+		if(turn_params.ct == TURN_CREDENTIALS_LONG_TERM)
 			cli_print_flag(cs,1,"Long-term authorization mechanism",0);
-		else if(cs->rp->options.ct == TURN_CREDENTIALS_SHORT_TERM)
+		else if(turn_params.ct == TURN_CREDENTIALS_SHORT_TERM)
 			cli_print_flag(cs,1,"Short-term authorization mechanism",0);
 		else
 			cli_print_flag(cs,1,"Anonymous credentials",0);

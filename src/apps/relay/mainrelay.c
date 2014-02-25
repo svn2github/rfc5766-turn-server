@@ -98,7 +98,7 @@ LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
 /////////////// stop server ////////////////
 0,
 /////////////// MISC PARAMS ////////////////
-0,0,0,0,0,SHATYPE_SHA1,':',0,0,
+0,0,0,0,0,SHATYPE_SHA1,':',0,0,TURN_CREDENTIALS_NONE,
 ///////////// Users DB //////////////
 { TURN_USERDB_TYPE_FILE, {"\0",NULL}, {0,NULL,NULL, {NULL,0}} }
 
@@ -983,28 +983,28 @@ static void set_option(int c, char *value)
 		break;
 	case 'a':
 		if (get_bool_value(value)) {
-			get_realm(NULL)->options.ct = TURN_CREDENTIALS_LONG_TERM;
+			turn_params.ct = TURN_CREDENTIALS_LONG_TERM;
 			use_lt_credentials=1;
 		} else {
-			get_realm(NULL)->options.ct = TURN_CREDENTIALS_UNDEFINED;
+			turn_params.ct = TURN_CREDENTIALS_UNDEFINED;
 			use_lt_credentials=0;
 		}
 		break;
 	case 'A':
 		if (get_bool_value(value)) {
-			get_realm(NULL)->options.ct = TURN_CREDENTIALS_SHORT_TERM;
+			turn_params.ct = TURN_CREDENTIALS_SHORT_TERM;
 			use_st_credentials=1;
 		} else {
-			get_realm(NULL)->options.ct = TURN_CREDENTIALS_UNDEFINED;
+			turn_params.ct = TURN_CREDENTIALS_UNDEFINED;
 			use_st_credentials=0;
 		}
 		break;
 	case 'z':
 		if (!get_bool_value(value)) {
-			get_realm(NULL)->options.ct = TURN_CREDENTIALS_UNDEFINED;
+			turn_params.ct = TURN_CREDENTIALS_UNDEFINED;
 			anon_credentials = 0;
 		} else {
-			get_realm(NULL)->options.ct = TURN_CREDENTIALS_NONE;
+			turn_params.ct = TURN_CREDENTIALS_NONE;
 			anon_credentials = 1;
 		}
 		break;
@@ -1669,10 +1669,10 @@ int main(int argc, char **argv)
 	if(!use_lt_credentials && !anon_credentials && !use_st_credentials) {
 		if(turn_params.default_users_db.ram_db.users_number) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you specified long-term user accounts, (-u option) \n	but you did not specify the long-term credentials option\n	(-a or --lt-cred-mech option).\n 	I am turning --lt-cred-mech ON for you, but double-check your configuration.\n");
-			get_realm(NULL)->options.ct = TURN_CREDENTIALS_LONG_TERM;
+			turn_params.ct = TURN_CREDENTIALS_LONG_TERM;
 			use_lt_credentials=1;
 		} else {
-			get_realm(NULL)->options.ct = TURN_CREDENTIALS_NONE;
+			turn_params.ct = TURN_CREDENTIALS_NONE;
 			use_lt_credentials=0;
 		}
 	}
@@ -1688,7 +1688,7 @@ int main(int argc, char **argv)
 	if(anon_credentials) {
 		if(turn_params.default_users_db.ram_db.users_number) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you specified user accounts, (-u option) \n	but you also specified the anonymous user access option (-z or --no-auth option).\n 	User accounts will be ignored.\n");
-			get_realm(NULL)->options.ct = TURN_CREDENTIALS_NONE;
+			turn_params.ct = TURN_CREDENTIALS_NONE;
 			use_lt_credentials=0;
 			use_st_credentials=0;
 		}

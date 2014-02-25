@@ -302,6 +302,7 @@ typedef struct _turn_params_ {
   char rest_api_separator;
   vint stale_nonce;
   vint mobility;
+  turn_credential_type ct;
 
 /////// Users DB ///////////
 

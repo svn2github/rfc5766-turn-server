@@ -48,7 +48,6 @@ struct _realm_options {
 
 	s08bits name[STUN_MAX_REALM_SIZE + 1];
 
-	turn_credential_type ct;
 	int use_auth_secret_with_timestamp;
 
 	vint total_quota;

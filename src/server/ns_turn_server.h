@@ -110,6 +110,7 @@ struct _turn_turnserver {
 	vintp no_stun;
 	vintp secure_stun;
 	SHATYPE shatype;
+	turn_credential_type ct;
 	get_alt_addr_cb alt_addr_cb;
 	send_message_cb sm_cb;
 	dont_fragment_option_t dont_fragment;
@@ -155,6 +156,7 @@ struct _turn_turnserver {
 void init_turn_server(turn_turnserver* server,
 					turnserver_id id, int verbose,
 				    ioa_engine_handle e,
+				    turn_credential_type ct,
 				    int stun_port,
 				    int fingerprint,
 				    dont_fragment_option_t dont_fragment,

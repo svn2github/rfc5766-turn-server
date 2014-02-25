@@ -82,7 +82,6 @@ static const realm_params _default_realm_params =
   1,
   {
 	"\0", /* name */
-    TURN_CREDENTIALS_NONE,
     0,0,0,0
   },
   {0,NULL}
