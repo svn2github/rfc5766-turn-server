@@ -740,8 +740,8 @@ static void cli_print_configuration(struct cli_session* cs)
 			cli_print_flag(cs,1,"Short-term authorization mechanism",0);
 		else
 			cli_print_flag(cs,1,"Anonymous credentials",0);
-		cli_print_flag(cs,cs->rp->options.use_auth_secret_with_timestamp,"REST API support",0);
-		if(cs->rp->options.use_auth_secret_with_timestamp && turn_params.rest_api_separator)
+		cli_print_flag(cs,turn_params.use_auth_secret_with_timestamp,"REST API support",0);
+		if(turn_params.use_auth_secret_with_timestamp && turn_params.rest_api_separator)
 			cli_print_uint(cs,turn_params.rest_api_separator,"REST API separator ASCII number",0);
 
 		myprintf(cs,"\n");

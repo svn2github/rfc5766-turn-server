@@ -98,7 +98,7 @@ LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
 /////////////// stop server ////////////////
 0,
 /////////////// MISC PARAMS ////////////////
-0,0,0,0,0,SHATYPE_SHA1,':',0,0,TURN_CREDENTIALS_NONE,
+0,0,0,0,0,SHATYPE_SHA1,':',0,0,TURN_CREDENTIALS_NONE,0,
 ///////////// Users DB //////////////
 { TURN_USERDB_TYPE_FILE, {"\0",NULL}, {0,NULL,NULL, {NULL,0}} }
 
@@ -1041,11 +1041,11 @@ static void set_option(int c, char *value)
 		break;
 #endif
 	case AUTH_SECRET_OPT:
-		get_realm(NULL)->options.use_auth_secret_with_timestamp = 1;
+		turn_params.use_auth_secret_with_timestamp = 1;
 		break;
 	case STATIC_AUTH_SECRET_VAL_OPT:
 		add_to_secrets_list(&turn_params.default_users_db.ram_db.static_auth_secrets,value);
-		get_realm(NULL)->options.use_auth_secret_with_timestamp = 1;
+		turn_params.use_auth_secret_with_timestamp = 1;
 		break;
 	case AUTH_SECRET_TS_EXP:
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Option --secret-ts-exp-time deprecated and has no effect.\n");
@@ -1678,7 +1678,7 @@ int main(int argc, char **argv)
 	}
 
 	if(use_lt_credentials) {
-		if(!turn_params.default_users_db.ram_db.users_number && (turn_params.default_users_db.userdb_type == TURN_USERDB_TYPE_FILE) && !get_realm(NULL)->options.use_auth_secret_with_timestamp) {
+		if(!turn_params.default_users_db.ram_db.users_number && (turn_params.default_users_db.userdb_type == TURN_USERDB_TYPE_FILE) && !turn_params.use_auth_secret_with_timestamp) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did not specify any user account, (-u option) \n	but you did specified a long-term credentials mechanism option (-a option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
 		} else if(!get_realm(NULL)->options.name[0]) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did specify the long-term credentials usage\n but you did not specify the realm option (-r option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
@@ -1694,7 +1694,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if(get_realm(NULL)->options.use_auth_secret_with_timestamp && use_st_credentials) {
+	if(turn_params.use_auth_secret_with_timestamp && use_st_credentials) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "\nCONFIGURATION ERROR: Authentication secret (REST API) cannot be used with short-term credentials mechanism.\n");
 		exit(-1);
 	}

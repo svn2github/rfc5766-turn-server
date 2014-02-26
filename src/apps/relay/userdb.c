@@ -82,7 +82,6 @@ static const realm_params_t _default_realm_params =
   1,
   {
 	"\0", /* name */
-    0,
     {0,0,0}
   },
   {0,NULL}
@@ -908,7 +907,7 @@ static turn_time_t get_rest_api_timestamp(char *usname)
 
 static char *get_real_username(char *usname)
 {
-	if(get_realm(NULL)->options.use_auth_secret_with_timestamp) {
+	if(turn_params.use_auth_secret_with_timestamp) {
 		char *col=strchr(usname,turn_params.rest_api_separator);
 		if(col) {
 			if(col == usname) {
@@ -945,7 +944,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 {
 	int ret = -1;
 
-	if(get_realm(NULL)->options.use_auth_secret_with_timestamp) {
+	if(turn_params.use_auth_secret_with_timestamp) {
 
 		turn_time_t ctime = (turn_time_t) time(NULL);
 		turn_time_t ts = 0;
@@ -1342,7 +1341,7 @@ void read_userdb_file(int to_print)
 
 	if(turn_params.default_users_db.userdb_type != TURN_USERDB_TYPE_FILE)
 		return;
-	if(get_realm(NULL)->options.use_auth_secret_with_timestamp)
+	if(turn_params.use_auth_secret_with_timestamp)
 		return;
 
 	FILE *f = NULL;
@@ -1413,7 +1412,8 @@ void read_userdb_file(int to_print)
 
 int add_user_account(char *user, int dynamic)
 {
-	if(user && !get_realm(NULL)->options.use_auth_secret_with_timestamp) {
+	/* Realm is either default or empty for users taken from file or command-line */
+	if(user && !turn_params.use_auth_secret_with_timestamp) {
 		char *s = strstr(user, ":");
 		if(!s || (s==user) || (strlen(s)<2)) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Wrong user account: %s\n",user);

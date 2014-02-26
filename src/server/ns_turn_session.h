@@ -57,8 +57,6 @@ struct _realm_options_t {
 
 	s08bits name[STUN_MAX_REALM_SIZE + 1];
 
-	int use_auth_secret_with_timestamp;
-
 	perf_options_t perf_options;
 };
 
