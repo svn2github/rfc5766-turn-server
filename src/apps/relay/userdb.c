@@ -676,12 +676,21 @@ static redisContext *get_redis_connection(const char *realm)
 	redisContext *redisconnection = (redisContext*)(pud->connection);
 
 	if(redisconnection) {
-		void *reply = redisCommand(redisconnection, "keys glokta*");
+		if(redisconnection->err) {
+			redisFree(redisconnection);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot connect to redis (sync, 1), flags=0x%x\n", __FUNCTION__,(unsigned long)redisconnection->flags);
+			pud->connection = NULL;
+			redisconnection = NULL;
+		}
+	}
+
+	if(redisconnection) {
+		void *reply = redisCommand(redisconnection, "keys turn/secret/*");
 		if(reply) {
 		  freeReplyObject(reply);
 		} else {
 			redisFree(redisconnection);
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot connect to redis (sync, 1)\n", __FUNCTION__);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot connect to redis (sync, 2)\n", __FUNCTION__);
 			pud->connection = NULL;
 			redisconnection = NULL;
 		}
@@ -725,7 +734,6 @@ static redisContext *get_redis_connection(const char *realm)
 			if (!redisconnection) {
 				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot initialize Redis DB connection\n");
 			} else {
-				redisEnableKeepAlive(redisconnection);
 				if (co->password) {
 					turnFreeRedisReply(redisCommand(redisconnection, "AUTH %s", co->password));
 				}

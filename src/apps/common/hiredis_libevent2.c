@@ -195,7 +195,7 @@ void send_message_to_redis(redis_context_handle rch, const char *command, const 
 			vsnprintf(rm.arg, sizeof(rm.arg)-1, format, args);
 			va_end (args);
 
-			if((redisAsyncCommand(ac, NULL, e, rm.format, rm.arg)!=REDIS_OK) || (ac->err) ) {
+			if((redisAsyncCommand(ac, NULL, e, rm.format, rm.arg)!=REDIS_OK) || (ac->err) || (ac->c.err)) {
 				e->invalid = 1;
 				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Redis connection broken: ac=0x%lx, e=0x%x\n", __FUNCTION__,(unsigned long)ac,(unsigned long)e);
 			}
@@ -225,9 +225,9 @@ static void deleteKeysCallback(redisAsyncContext *c, void *reply0, void *privdat
 static void delete_redis_keys(redis_context_handle rch, const char *key_pattern)
 {
 	struct redisLibeventEvents *e = (struct redisLibeventEvents*)rch;
-	if(!(e->invalid)) {
+	if(e && !(e->invalid)) {
 		redisAsyncContext *ac=e->context;
-		if(ac && !(ac->err)) {
+		if(ac && !(ac->err) && !(ac->c.err)) {
 			redisAsyncCommand(ac, deleteKeysCallback, ac->ev.data, "keys %s", key_pattern);
 		}
 	}
@@ -269,12 +269,10 @@ redis_context_handle redisLibeventAttach(struct event_base *base, char *ip0, int
 	  port=port0;
 
   ac = redisAsyncConnect(ip, port);
-  if (ac->err) {
-  	fprintf(stderr,"Error: %s\n", ac->errstr);
+  if (ac->err || (ac->c.err)) {
+  	fprintf(stderr,"Error: %s:%s\n", ac->errstr, ac->c.errstr);
   	return NULL;
   }
-
-  redisEnableKeepAlive(&(ac->c));
 
   /* Create container for context and r/w events */
   e = (struct redisLibeventEvents*)turn_malloc(sizeof(struct redisLibeventEvents));
@@ -323,7 +321,7 @@ redis_context_handle redisLibeventAttach(struct event_base *base, char *ip0, int
   		  e->invalid = 1;
   		  TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot connect to redis (async, 1)\n", __FUNCTION__);
   	  } else {
-  		  void *reply = redisCommand(redisconnection, "keys glokta*");
+  		  void *reply = redisCommand(redisconnection, "keys turn/secret/*");
   		  if(reply) {
   			  freeReplyObject(reply);
   		  } else {
@@ -336,13 +334,13 @@ redis_context_handle redisLibeventAttach(struct event_base *base, char *ip0, int
 
   //Authentication
   if(!(e->invalid) && pwd) {
-	  if((redisAsyncCommand(ac, NULL, e, "AUTH %s", pwd)<0) || (ac->err)) {
+	  if((redisAsyncCommand(ac, NULL, e, "AUTH %s", pwd)<0) || (ac->err)|| (ac->c.err)) {
 		  e->invalid = 1;
 	  }
   }
 
   if(!(e->invalid)) {
-	  if((redisAsyncCommand(ac, NULL, e, "SELECT %d", db)<0) || (ac->err)) {
+	  if((redisAsyncCommand(ac, NULL, e, "SELECT %d", db)<0) || (ac->err)|| (ac->c.err)) {
 		  e->invalid = 1;
 	  }
   }
