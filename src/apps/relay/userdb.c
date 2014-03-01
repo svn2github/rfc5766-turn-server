@@ -656,10 +656,8 @@ redis_context_handle get_redis_async_connection(struct event_base *base, const c
 
 			if (!ret) {
 				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot initialize Redis DB connection\n");
-			} else {
-				if (!donot_print_connection_success) {
-					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB async connection success: %s\n", connection_string);
-				}
+			} else if (is_redis_asyncconn_good(ret) && !donot_print_connection_success) {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB async connection to be used: %s\n", connection_string);
 			}
 			RyconninfoFree(co);
 		}
@@ -676,6 +674,19 @@ static redisContext *get_redis_connection(const char *realm)
 	persistent_users_db_t *pud = get_persistent_users_db(realm);
 
 	redisContext *redisconnection = (redisContext*)(pud->connection);
+
+	if(redisconnection) {
+		void *reply = redisCommand(redisconnection, "keys glokta*");
+		if(reply) {
+		  freeReplyObject(reply);
+		} else {
+			redisFree(redisconnection);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot connect to redis (sync, 1)\n", __FUNCTION__);
+			pud->connection = NULL;
+			redisconnection = NULL;
+		}
+	}
+
 	if (!redisconnection) {
 
 		char *errmsg = NULL;
@@ -714,6 +725,7 @@ static redisContext *get_redis_connection(const char *realm)
 			if (!redisconnection) {
 				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot initialize Redis DB connection\n");
 			} else {
+				redisEnableKeepAlive(redisconnection);
 				if (co->password) {
 					turnFreeRedisReply(redisCommand(redisconnection, "AUTH %s", co->password));
 				}

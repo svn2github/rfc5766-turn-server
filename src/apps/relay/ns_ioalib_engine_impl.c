@@ -3137,9 +3137,9 @@ void turn_report_allocation_set(void *a, turn_time_t lifetime, int refresh)
 				{
 					char key[1024];
 					if(ss->realm_options.name[0]) {
-						snprintf(key,sizeof(key),"turn/realm/%s/user/%s/allocation/%llu/status",ss->realm_options.name,(char*)ss->username, (unsigned long long)ss->id);
+						snprintf(key,sizeof(key),"turn/realm/%s/user/%s/allocation/%018llu/status",ss->realm_options.name,(char*)ss->username, (unsigned long long)ss->id);
 					} else {
-						snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/status",(char*)ss->username, (unsigned long long)ss->id);
+						snprintf(key,sizeof(key),"turn/user/%s/allocation/%018llu/status",(char*)ss->username, (unsigned long long)ss->id);
 					}
 					send_message_to_redis(e->rch, "set", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
 					send_message_to_redis(e->rch, "publish", key, "%s lifetime=%lu", status, (unsigned long)lifetime);
@@ -3165,9 +3165,9 @@ void turn_report_allocation_delete(void *a)
 				{
 					char key[1024];
 					if(ss->realm_options.name[0]) {
-						snprintf(key,sizeof(key),"turn/realm/%s/user/%s/allocation/%llu/status",ss->realm_options.name,(char*)ss->username, (unsigned long long)ss->id);
+						snprintf(key,sizeof(key),"turn/realm/%s/user/%s/allocation/%018llu/status",ss->realm_options.name,(char*)ss->username, (unsigned long long)ss->id);
 					} else {
-						snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/status",(char*)ss->username, (unsigned long long)ss->id);
+						snprintf(key,sizeof(key),"turn/user/%s/allocation/%018llu/status",(char*)ss->username, (unsigned long long)ss->id);
 					}
 					send_message_to_redis(e->rch, "del", key, "");
 					send_message_to_redis(e->rch, "publish", key, "deleted");
@@ -3193,9 +3193,9 @@ void turn_report_session_usage(void *session)
 				{
 					char key[1024];
 					if(ss->realm_options.name[0]) {
-						snprintf(key,sizeof(key),"turn/realm/%s/user/%s/allocation/%llu/traffic",ss->realm_options.name,(char*)ss->username, (unsigned long long)(ss->id));
+						snprintf(key,sizeof(key),"turn/realm/%s/user/%s/allocation/%018llu/traffic",ss->realm_options.name,(char*)ss->username, (unsigned long long)(ss->id));
 					} else {
-						snprintf(key,sizeof(key),"turn/user/%s/allocation/%llu/traffic",(char*)ss->username, (unsigned long long)(ss->id));
+						snprintf(key,sizeof(key),"turn/user/%s/allocation/%018llu/traffic",(char*)ss->username, (unsigned long long)(ss->id));
 					}
 					send_message_to_redis(e->rch, "publish", key, "rcvp=%lu, rcvb=%lu, sentp=%lu, sentb=%lu",(unsigned long)(ss->received_packets), (unsigned long)(ss->received_bytes),(unsigned long)(ss->sent_packets),(unsigned long)(ss->sent_bytes));
 				}

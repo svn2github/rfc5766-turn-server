@@ -1251,11 +1251,6 @@ static void run_events(struct event_base *eb, ioa_engine_handle e)
 	event_base_loopexit(eb, &timeout);
 
 	event_base_dispatch(eb);
-
-#if !defined(TURN_NO_HIREDIS)
-	if(e)
-		send_message_to_redis(e->rch, "publish", "__XXX__", "__YYY__");
-#endif
 }
 
 void run_listener_server(struct listener_server *ls)
@@ -1422,9 +1417,6 @@ static void* run_auth_server_thread(void *arg)
 		read_userdb_file(0);
 		update_white_and_black_lists();
 		auth_ping();
-#if !defined(TURN_NO_HIREDIS)
-		send_message_to_redis(authserver->rch, "publish", "__XXX__", "__YYY__");
-#endif
 	}
 
 	return arg;

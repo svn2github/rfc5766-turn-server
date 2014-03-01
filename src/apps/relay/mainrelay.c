@@ -1536,6 +1536,10 @@ int main(int argc, char **argv)
 
 	init_super_memory();
 
+#if !defined(TURN_NO_HIREDIS)
+	redis_async_init();
+#endif
+
 	create_realm(NULL);
 
 	init_turn_server_addrs_list(&turn_params.alternate_servers_list);
