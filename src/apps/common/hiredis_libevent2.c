@@ -190,19 +190,21 @@ void send_message_to_redis(redis_context_handle rch, const char *command, const 
 
 			redisAsyncContext *ac=e->context;
 
-			struct redis_message rm;
+			if(ac) {
+				struct redis_message rm;
 
-			snprintf(rm.format,sizeof(rm.format)-3,"%s %s ", command, key);
-			strcpy(rm.format+strlen(rm.format),"%s");
+				snprintf(rm.format,sizeof(rm.format)-3,"%s %s ", command, key);
+				strcpy(rm.format+strlen(rm.format),"%s");
 
-			va_list args;
-			va_start (args, format);
-			vsnprintf(rm.arg, sizeof(rm.arg)-1, format, args);
-			va_end (args);
+				va_list args;
+				va_start (args, format);
+				vsnprintf(rm.arg, sizeof(rm.arg)-1, format, args);
+				va_end (args);
 
-			if((redisAsyncCommand(ac, NULL, e, rm.format, rm.arg)!=REDIS_OK) || (ac->err) || (ac->c.err)) {
-				e->invalid = 1;
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Redis connection broken: ac=0x%lx, e=0x%x\n", __FUNCTION__,(unsigned long)ac,(unsigned long)e);
+				if((redisAsyncCommand(ac, NULL, e, rm.format, rm.arg)!=REDIS_OK) || (ac->err) || (ac->c.err)) {
+					e->invalid = 1;
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Redis connection broken: ac=0x%lx, e=0x%x\n", __FUNCTION__,(unsigned long)ac,(unsigned long)e);
+				}
 			}
 		}
 	}
@@ -212,7 +214,7 @@ static void deleteKeysCallback(redisAsyncContext *c, void *reply0, void *privdat
 {
 	redisReply *reply = (redisReply*) reply0;
 
-	if (reply) {
+	if (c && reply) {
 
 		if (reply->type == REDIS_REPLY_ERROR)
 			fprintf(stderr,"Error: %s\n", reply->str);
