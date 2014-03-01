@@ -66,6 +66,10 @@ struct redis_message
 	char arg[513];
 };
 
+/////////////////// forward declarations ///////////////
+
+static void redis_reconnect(struct redisLibeventEvents *e);
+
 /////////////////// Callbacks ////////////////////////////
 
 static void redisLibeventReadEvent(int fd, short event, void *arg) {
@@ -179,7 +183,8 @@ void send_message_to_redis(redis_context_handle rch, const char *command, const 
 
 		struct redisLibeventEvents *e = (struct redisLibeventEvents*)rch;
 
-		//reset_async_conn(e);
+		if(e->invalid || !(e->context) || e->context->err || e->context->c.err)
+			redis_reconnect(e);
 
 		if(!(e->invalid)) {
 
@@ -269,7 +274,7 @@ redis_context_handle redisLibeventAttach(struct event_base *base, char *ip0, int
 	  port=port0;
 
   ac = redisAsyncConnect(ip, port);
-  if (ac->err || (ac->c.err)) {
+  if (!ac || (ac->err) || (ac->c.err)) {
   	fprintf(stderr,"Error: %s:%s\n", ac->errstr, ac->c.errstr);
   	return NULL;
   }
@@ -346,6 +351,98 @@ redis_context_handle redisLibeventAttach(struct event_base *base, char *ip0, int
   }
 
   return (redis_context_handle)e;
+}
+
+static void redis_reconnect(struct redisLibeventEvents *e)
+{
+  if(!e || !(e->allocated))
+	  return;
+
+  redisAsyncContext *ac = NULL;
+
+  ac = redisAsyncConnect(e->ip, e->port);
+  if(!ac)
+	  return;
+
+  if (ac->err || (ac->c.err))
+  	return;
+
+  e->context = ac;
+
+  /* Register functions to start/stop listening for events */
+  ac->ev.addRead = redisLibeventAddRead;
+  ac->ev.delRead = redisLibeventDelRead;
+  ac->ev.addWrite = redisLibeventAddWrite;
+  ac->ev.delWrite = redisLibeventDelWrite;
+  ac->ev.cleanup = redisLibeventCleanup;
+
+  ac->ev.data = e;
+
+  if (e->rev) {
+  	if(e->rev_set)
+  		event_del(e->rev);
+  	event_free(e->rev);
+  	e->rev = NULL;
+  }
+  if (e->wev) {
+  	if(e->wev_set)
+  		event_del(e->wev);
+  	event_free(e->wev);
+  	e->wev = NULL;
+  }
+
+  /* Initialize and install read/write events */
+  e->rev = event_new(e->base,e->context->c.fd,
+  		     EV_READ,redisLibeventReadEvent,
+  		     e);
+
+  e->wev = event_new(e->base,e->context->c.fd,
+		     EV_WRITE,redisLibeventWriteEvent,
+  		     e);
+
+  if (e->rev == NULL || e->wev == NULL) {
+	  return;
+  }
+
+  event_add(e->wev, NULL);
+  e->wev_set = 1;
+
+  redisAsyncSetDisconnectCallback(ac, redisDisconnectCallbackFunc);
+
+  {
+  	  redisContext* redisconnection = redisConnect(e->ip, e->port);
+  	  if(!redisconnection) {
+  		  e->invalid = 1;
+  		  TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot connect to redis (async, 1)\n", __FUNCTION__);
+  	  } else {
+  		  void *reply = redisCommand(redisconnection, "keys turn/secret/*");
+  		  if(reply) {
+  			  freeReplyObject(reply);
+  			  e->invalid = 0;
+  		  } else {
+  			  e->invalid = 1;
+  			  TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot connect to redis (async, 2)\n", __FUNCTION__);
+  		  }
+  		  redisFree(redisconnection);
+  	  }
+  }
+
+  //Authentication
+  if(!(e->invalid) && e->pwd) {
+	  if((redisAsyncCommand(ac, NULL, e, "AUTH %s", e->pwd)<0) || (ac->err)|| (ac->c.err)) {
+		  e->invalid = 1;
+	  }
+  }
+
+  if(!(e->invalid)) {
+	  if((redisAsyncCommand(ac, NULL, e, "SELECT %d", e->db)<0) || (ac->err)|| (ac->c.err)) {
+		  e->invalid = 1;
+	  }
+  }
+
+  if(!(e->invalid)) {
+	  TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Re-connected to redis, async\n", __FUNCTION__);
+  }
 }
 
 /////////////////////////////////////////////////////////
