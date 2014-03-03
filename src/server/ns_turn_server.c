@@ -3526,7 +3526,7 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 
 	ts_ur_session* elem = &(ss->client_session);
 
-	if(*(server->mobility) && !force && ss->is_mobile) {
+	if(!force) {
 
 		if(elem->s) {
 			clear_ioa_socket_session_if(elem->s,ss);
@@ -3534,7 +3534,7 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 		}
 
 		if (server->verbose) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (mobile pattern), user <%s> realm <%s> origin <%s>\n",
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (1st stage), user <%s> realm <%s> origin <%s>\n",
 					(char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin);
 		}
 
@@ -3580,7 +3580,7 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 	}
 
 	if (server->verbose) {
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (non-mobile pattern), user <%s> realm <%s> origin <%s>\n",
+		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (2nd stage), user <%s> realm <%s> origin <%s>\n",
 					(char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin);
 	}
 
@@ -4149,7 +4149,7 @@ static void peer_input_handler(ioa_socket_handle s, int event_type,
 					ioa_network_buffer_set_size(nbh, len);
 				}
 
-				/* We add integrity for short-term indication messages, only*/
+				/* We add integrity for short-term indication messages, only */
 				if(server->ct == TURN_CREDENTIALS_SHORT_TERM)
 				{
 					adjust_shatype(server,ss);
