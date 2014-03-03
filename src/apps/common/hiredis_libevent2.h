@@ -54,8 +54,6 @@ redis_context_handle redisLibeventAttach(struct event_base *base, char *ip, int 
 
 void send_message_to_redis(redis_context_handle rch, const char *command, const char *key, const char *format,...);
 
-void turn_report_allocation_delete_all(redis_context_handle rch);
-
 int is_redis_asyncconn_good(redis_context_handle rch);
 
 #ifdef __cplusplus

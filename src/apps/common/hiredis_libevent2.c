@@ -219,39 +219,6 @@ void send_message_to_redis(redis_context_handle rch, const char *command, const 
 	}
 }
 
-static void deleteKeysCallback(redisAsyncContext *c, void *reply0, void *privdata)
-{
-	redisReply *reply = (redisReply*) reply0;
-
-	if (c && reply && privdata) {
-
-		if (reply->type == REDIS_REPLY_ERROR)
-			fprintf(stderr,"Error: %s\n", reply->str);
-		else if (reply->type != REDIS_REPLY_ARRAY)
-			fprintf(stderr,"Unexpected type: %d\n", reply->type);
-		else {
-			size_t i;
-			for (i = 0; (i < reply->elements) && !(c->err); ++i) {
-				redisAsyncCommand(c, NULL, privdata, "del %s", reply->element[i]->str);
-			}
-		}
-	}
-}
-
-static void delete_redis_keys(redis_context_handle rch, const char *key_pattern)
-{
-	struct redisLibeventEvents *e = (struct redisLibeventEvents*)rch;
-	if(redis_le_valid(e)) {
-		redisAsyncContext *ac=e->context;
-		redisAsyncCommand(ac, deleteKeysCallback, ac->ev.data, "keys %s", key_pattern);
-	}
-}
-
-void turn_report_allocation_delete_all(redis_context_handle rch)
-{
-	delete_redis_keys(rch, "turn/user/*/allocation/*/status");
-}
-
 ///////////////////////// Attach /////////////////////////////////
 
 redis_context_handle redisLibeventAttach(struct event_base *base, char *ip0, int port0, char *pwd, int db)

@@ -95,16 +95,16 @@ set turn/denied-peer-ip/234567 "123::45"
 
 set turn/allowed-peer-ip/345678 "172.17.13.200"
 
-set turn/origin/http://crinna.org crinna.org
-set turn/origin/http://bligh.edu crinna.org
+set turn/origin/http://crinna.org:80 crinna.org
+set turn/origin/https://bligh.edu:443 crinna.org
 
-set turn/realm/crinna.org/db 7
+set turn/realm/crinna.org/db 1
 
 save
 
 !
 
-V. Extra realm "crinna.org" database example.
+V. Extra-realm "crinna.org" database example.
 
   * long-term credentials with open passwords;
   * long-term credentials with hashed passwords and 
@@ -113,7 +113,7 @@ V. Extra realm "crinna.org" database example.
   
 $ redis-cli <<!
 
-SELECT 7
+SELECT 1
 AUTH turn
 
 set turn/user/whirrun/key "6972e85e51f36e53b0b61759c5a5219a"
@@ -122,7 +122,7 @@ set turn/user/stranger-come-knocking/key "d43cb678560259a1839bff61c19de15e"
 set turn/user/whirrun/password "sword"
 set turn/user/stranger-come-knocking/password "civilization"
 
-set turn/secret/777888999 "civilization"
+set turn/secret/777888999 "north"
 
 save
 
@@ -132,7 +132,7 @@ VI. Redis database configuration parameters
 
 TURN Server connects to the Redis and keeps the same connection during the 
 TURN server lifetime. That means that we have to take care about that 
-connection - it must NOT expire.
+connection - it must not expire.
 
 You have to take care about Redis connection parameters, the timeout and the 
 keepalive. The following settings must be in your Redis config file

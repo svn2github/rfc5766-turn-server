@@ -633,9 +633,10 @@ static Ryconninfo *RyconninfoParse(const char *userdb, char **errmsg)
 	return co;
 }
 
-redis_context_handle get_redis_async_connection(struct event_base *base, const char* connection_string)
+redis_context_handle get_redis_async_connection(struct event_base *base, const char* connection_string, int delete_keys)
 {
 	redis_context_handle ret = NULL;
+
 	char *errmsg = NULL;
 	if(base  && connection_string  && connection_string[0]) {
 		Ryconninfo *co = RyconninfoParse(connection_string, &errmsg);
@@ -651,6 +652,74 @@ redis_context_handle get_redis_async_connection(struct event_base *base, const c
 			turn_free(errmsg,strlen(errmsg)+1);
 			RyconninfoFree(co);
 		} else {
+
+			if(delete_keys) {
+
+				redisContext *rc = NULL;
+
+				char ip[256] = "\0";
+				int port = DEFAULT_REDIS_PORT;
+				if (co->host)
+					STRCPY(ip,co->host);
+				if (!ip[0])
+					STRCPY(ip,"127.0.0.1");
+
+				if (co->port)
+					port = (int) (co->port);
+
+				if (co->connect_timeout) {
+					struct timeval tv;
+					tv.tv_usec = 0;
+					tv.tv_sec = (time_t) (co->connect_timeout);
+					rc = redisConnectWithTimeout(ip, port, tv);
+				} else {
+					rc = redisConnect(ip, port);
+				}
+
+				if (!rc) {
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Cannot initialize Redis DB async connection\n");
+				} else {
+					if (co->password) {
+						turnFreeRedisReply(redisCommand(rc, "AUTH %s", co->password));
+					}
+					if (co->dbname) {
+						turnFreeRedisReply(redisCommand(rc, "select %s", co->dbname));
+					}
+					{
+						redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/*/allocation/*/status");
+						if(reply) {
+							secrets_list_t keys;
+							size_t isz = 0;
+							char s[513];
+
+							init_secrets_list(&keys);
+
+							if (reply->type == REDIS_REPLY_ERROR) {
+								TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", reply->str);
+							} else if (reply->type != REDIS_REPLY_ARRAY) {
+								if (reply->type != REDIS_REPLY_NIL)
+									TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", reply->type);
+							} else {
+								size_t i;
+								for (i = 0; i < reply->elements; ++i) {
+									add_to_secrets_list(&keys,reply->element[i]->str);
+								}
+							}
+
+							for(isz=0;isz<keys.sz;++isz) {
+
+								snprintf(s,sizeof(s),"del %s", keys.secrets[isz]);
+								turnFreeRedisReply(redisCommand(rc, s));
+							}
+
+							clean_secrets_list(&keys);
+
+							turnFreeRedisReply(reply);
+						}
+					}
+					redisFree(rc);
+				}
+			}
 
 			ret = redisLibeventAttach(base, co->host, co->port, co->password, atoi(co->dbname));
 
@@ -837,6 +906,7 @@ static int get_auth_secrets(secrets_list_t *sl)
 	if(rc) {
 		redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/secret/*");
 		if(reply) {
+
 			secrets_list_t keys;
 			size_t isz = 0;
 			char s[257];

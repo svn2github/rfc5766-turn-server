@@ -1450,8 +1450,7 @@ static void setup_auth_server(void)
 	bufferevent_enable(turn_params.authserver.in_buf, EV_READ);
 
 #if !defined(TURN_NO_HIREDIS)
-	turn_params.authserver.rch = get_redis_async_connection(turn_params.authserver.event_base, turn_params.redis_statsdb);
-	turn_report_allocation_delete_all(turn_params.authserver.rch);
+	turn_params.authserver.rch = get_redis_async_connection(turn_params.authserver.event_base, turn_params.redis_statsdb, 1);
 #endif
 
 	if(pthread_create(&(turn_params.authserver.thr), NULL, run_auth_server_thread, &(turn_params.authserver))<0) {

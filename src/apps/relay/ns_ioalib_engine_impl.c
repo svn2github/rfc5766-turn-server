@@ -276,7 +276,7 @@ ioa_engine_handle create_ioa_engine(super_memory_t *sm,
 
 #if !defined(TURN_NO_HIREDIS)
 		if(redis_report_connection_string && *redis_report_connection_string) {
-			e->rch = get_redis_async_connection(e->event_base, redis_report_connection_string);
+			e->rch = get_redis_async_connection(e->event_base, redis_report_connection_string, 0);
 		}
 #endif
 
