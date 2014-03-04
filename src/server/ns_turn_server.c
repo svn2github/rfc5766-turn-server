@@ -1506,9 +1506,11 @@ static void tcp_client_input_handler_rfc6062data(ioa_socket_handle s, int event_
 	ioa_network_buffer_handle nbh = in_buffer->nbh;
 	in_buffer->nbh = NULL;
 
-	u32bits bytes = (u32bits)ioa_network_buffer_get_size(nbh);
-	++(ss->received_packets);
-	ss->received_bytes += bytes;
+	if(ss) {
+		u32bits bytes = (u32bits)ioa_network_buffer_get_size(nbh);
+		++(ss->received_packets);
+		ss->received_bytes += bytes;
+	}
 
 	int ret = send_data_from_ioa_socket_nbh(tc->peer_s, NULL, nbh, TTL_IGNORE, TOS_IGNORE);
 	if (ret < 0) {
@@ -2995,22 +2997,22 @@ static void set_alternate_server(turn_server_addrs_list_t *asl, const ioa_addr *
   if(!(err_code)) {\
 	  if(ss->origin[0]) {\
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
-					"origin <%s> realm <%s> user <%s>: incoming packet " method " processed, success\n",\
-					(const char*)(ss->origin),(const char*)(ss->realm_options.name),(const char*)(ss->username));\
+					"session %018llu: origin <%s> realm <%s> user <%s>: incoming packet " method " processed, success\n",\
+					(unsigned long long)(ss->id), (const char*)(ss->origin),(const char*)(ss->realm_options.name),(const char*)(ss->username));\
 		} else {\
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
-					"realm <%s> user <%s>: incoming packet " method " processed, success\n",\
-					(const char*)(ss->realm_options.name),(const char*)(ss->username));\
+					"session %018llu: realm <%s> user <%s>: incoming packet " method " processed, success\n",\
+					(unsigned long long)(ss->id), (const char*)(ss->realm_options.name),(const char*)(ss->username));\
 		}\
   } else {\
 	  if(ss->origin[0]) {\
 		  TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
-		  "origin <%s> realm <%s> user <%s>: incoming packet " method " processed, error %d\n",\
-		  (const char*)(ss->origin),(const char*)(ss->realm_options.name),(const char*)(ss->username), (err_code));\
+		  "session %018llu: origin <%s> realm <%s> user <%s>: incoming packet " method " processed, error %d\n",\
+		  (unsigned long long)(ss->id), (const char*)(ss->origin),(const char*)(ss->realm_options.name),(const char*)(ss->username), (err_code));\
 	  } else {\
 		  TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,\
-		  "realm <%s> user <%s>: incoming packet " method " processed, error %d\n",\
-		  (const char*)(ss->realm_options.name),(const char*)(ss->username), (err_code));\
+		  "session %018llu: realm <%s> user <%s>: incoming packet " method " processed, error %d\n",\
+		  (unsigned long long)(ss->id), (const char*)(ss->realm_options.name),(const char*)(ss->username), (err_code));\
 	  }\
   }\
 }
@@ -3517,7 +3519,7 @@ static void peer_input_handler(ioa_socket_handle s, int event_type,
 
 /////////////// Client actions /////////////////
 
-int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss, int force) {
+int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss, int force, const char* reason) {
 
 	FUNCSTART;
 
@@ -3534,8 +3536,8 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 		}
 
 		if (server->verbose) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (1st stage), user <%s> realm <%s> origin <%s>\n",
-					(char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin);
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "session %018llu: closed (1st stage), user <%s> realm <%s> origin <%s>, reason %s\n",
+					(unsigned long long)(ss->id), (char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin, reason);
 		}
 
 		FUNCEND;
@@ -3580,8 +3582,8 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 	}
 
 	if (server->verbose) {
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "TURN connection closed (2nd stage), user <%s> realm <%s> origin <%s>\n",
-					(char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin);
+		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "session %018llu: closed (2nd stage), user <%s> realm <%s> origin <%s>, reason %s\n",
+					(unsigned long long)(ss->id), (char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin, reason);
 	}
 
 	turn_server_remove_all_from_ur_map_ss(ss);
@@ -3630,7 +3632,7 @@ static void client_to_be_allocated_timeout_handler(ioa_engine_handle e,
 
 	if(to_close) {
 		IOA_EVENT_DEL(ss->to_be_allocated_timeout_ev);
-		shutdown_client_connection(server, ss, 1);
+		shutdown_client_connection(server, ss, 1, "allocation watchdog determined bad session state");
 	}
 
 	FUNCEND;
@@ -3688,7 +3690,7 @@ static void client_ss_allocation_timeout_handler(ioa_engine_handle e, void *arg)
 
 	FUNCSTART;
 
-	shutdown_client_connection(server, ss, 1);
+	shutdown_client_connection(server, ss, 1, "allocation timeout");
 
 	FUNCEND;
 }
@@ -4217,13 +4219,13 @@ static void client_input_handler(ioa_socket_handle s, int event_type,
 	if (ret < 0) {
 		if(server->verbose) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR,
-				"Error on client handler: s=0x%lx\n", (long) (elem->s));
+				"session %018llu: error on client handler: s=0x%lx\n", (unsigned long long)(ss->id), (long) (elem->s));
 		}
 		set_ioa_socket_tobeclosed(s);
 	} else if (ss->to_be_closed) {
 		if(server->verbose) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,
-				"Session to be closed: ss=0x%lx\n", (long)ss);
+				"session %018llu: to be closed: ss=0x%lx\n", (unsigned long long)(ss->id), (long)ss);
 		}
 		set_ioa_socket_tobeclosed(s);
 	}
