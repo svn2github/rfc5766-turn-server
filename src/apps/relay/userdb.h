@@ -34,6 +34,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#if !defined(TURN_NO_HIREDIS)
+#include "hiredis_libevent2.h"
+#endif
+
 #include "ns_turn_utils.h"
 #include "ns_turn_maps.h"
 #include "ns_turn_server.h"
@@ -155,6 +159,10 @@ typedef struct _default_users_db_t
 
 /////////////////////////////////////////////
 
+realm_params_t* get_realm(char* name);
+
+/////////////////////////////////////////////
+
 void init_secrets_list(secrets_list_t *sl);
 void init_dynamic_ip_lists(void);
 void update_white_and_black_lists(void);
@@ -174,7 +182,14 @@ void release_allocation_quota(u08bits *username);
 /////////// Handle user DB /////////////////
 
 void read_userdb_file(int to_print);
-void auth_ping(void);
+void auth_ping(
+#if !defined(TURN_NO_HIREDIS)
+	redis_context_handle rch
+#else
+	void
+#endif
+);
+void reread_realms(void);
 int add_user_account(char *user, int dynamic);
 int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURNADMIN_COMMAND_TYPE ct, int is_st);
 

@@ -1422,10 +1422,12 @@ static void* run_auth_server_thread(void *arg)
 		run_events(eb,NULL);
 		read_userdb_file(0);
 		update_white_and_black_lists();
-		auth_ping();
+		auth_ping(
 #if !defined(TURN_NO_HIREDIS)
-		send_message_to_redis(authserver->rch, "publish", "__XXX__", "__YYY__");
+		authserver->rch
 #endif
+		);
+		reread_realms();
 	}
 
 	return arg;

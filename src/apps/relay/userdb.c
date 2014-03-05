@@ -102,13 +102,9 @@ realm_params_t* create_realm(char* name)
 		ns_bcopy(&_default_realm_params,default_realm_params_ptr,sizeof(realm_params_t));
 		realms = ur_string_map_create(NULL);
 		ret = default_realm_params_ptr;
+		ur_string_map_value_type value = (ur_string_map_value_type)ret;
+		ur_string_map_put(realms, (ur_string_map_key_type)default_realm_params_ptr->options.name, value);
 	} else {
-		if(default_realm_params_ptr) {
-			if(!strcmp(name,default_realm_params_ptr->options.name)) {
-				return default_realm_params_ptr;
-			}
-		}
-
 		ur_string_map_value_type value = 0;
 		if (!ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
 			ret = (realm_params_t*)turn_malloc(sizeof(realm_params_t));
@@ -135,9 +131,7 @@ void get_default_realm_options(realm_options_t* ro)
 
 realm_params_t* get_realm(char* name)
 {
-	if((name == NULL)||(name[0]==0)||(!strcmp(name,default_realm_params_ptr->options.name)))
-		return default_realm_params_ptr;
-	else {
+	if(name && name[0]) {
 	  ur_string_map_value_type value = 0;
 	  if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
 		  return (realm_params_t*)value;
@@ -147,17 +141,10 @@ realm_params_t* get_realm(char* name)
 	return default_realm_params_ptr;
 }
 
-void get_realm_params(char* name, realm_params_t *rp)
+int get_realm_data(char* name, realm_params_t* rp)
 {
-	if((name != NULL)&&name[0]&&strcmp(name,default_realm_params_ptr->options.name)) {
-	  ur_string_map_value_type value = 0;
-	  if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
-		  ns_bcopy(value,rp,sizeof(realm_params_t));
-		  return;
-	  }
-	}
-
-	ns_bcopy(default_realm_params_ptr,rp,sizeof(realm_params_t));
+	ns_bcopy(get_realm(name),rp,sizeof(realm_params_t));
+	return 0;
 }
 
 void get_realm_options_by_origin(char *origin, realm_options_t* ro)
@@ -1516,6 +1503,7 @@ int add_user_account(char *user, int dynamic)
 					return -1;
 				}
 			} else {
+				//this is only for default realm
 				stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)get_realm(NULL)->options.name, (u08bits*)s, *key);
 			}
 			if(dynamic) {
@@ -2221,7 +2209,13 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 
 /////////// PING //////////////
 
-void auth_ping(void)
+void auth_ping(
+#if !defined(TURN_NO_HIREDIS)
+				redis_context_handle rch
+#else
+				void
+#endif
+)
 {
 	donot_print_connection_success = 1;
 
@@ -2266,7 +2260,14 @@ void auth_ping(void)
 	if(rc) {
 		turnFreeRedisReply(redisCommand(rc, "keys turn/secret/*"));
 	}
+	if(rch)
+		send_message_to_redis(rch, "publish", "__XXX__", "__YYY__");
 #endif
+
+}
+
+void reread_realms(void)
+{
 
 }
 

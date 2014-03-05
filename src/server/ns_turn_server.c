@@ -3536,7 +3536,7 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 		}
 
 		if (server->verbose) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "session %018llu: closed (1st stage), user <%s> realm <%s> origin <%s>, reason %s\n",
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "session %018llu: closed (1st stage), user <%s> realm <%s> origin <%s>, reason: %s\n",
 					(unsigned long long)(ss->id), (char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin, reason);
 		}
 
@@ -3582,7 +3582,7 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 	}
 
 	if (server->verbose) {
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "session %018llu: closed (2nd stage), user <%s> realm <%s> origin <%s>, reason %s\n",
+		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "session %018llu: closed (2nd stage), user <%s> realm <%s> origin <%s>, reason: %s\n",
 					(unsigned long long)(ss->id), (char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin, reason);
 	}
 
