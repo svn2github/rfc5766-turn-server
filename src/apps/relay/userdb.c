@@ -2202,6 +2202,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		fclose(f);
 
 		rename(dir,full_path_to_userdb_file);
+		free(dir);
 	}
 
 	return 0;
