@@ -1408,33 +1408,8 @@ static int run_auth_server_flag = 1;
 
 static void* run_auth_server_thread(void *arg)
 {
-	struct auth_server *authserver = (struct auth_server*)arg;
-	struct event_base *eb = authserver->event_base;
-
-#if !defined(TURN_NO_THREAD_BARRIERS)
-	if((pthread_barrier_wait(&barrier)<0) && errno)
-		perror("barrier wait");
-#endif
-
 	ignore_sigpipe();
 
-	while(run_auth_server_flag) {
-		run_events(eb,NULL);
-		read_userdb_file(0);
-		update_white_and_black_lists();
-		auth_ping(
-#if !defined(TURN_NO_HIREDIS)
-		authserver->rch
-#endif
-		);
-		reread_realms();
-	}
-
-	return arg;
-}
-
-static void setup_auth_server(void)
-{
 	ns_bzero(&turn_params.authserver,sizeof(struct auth_server));
 
 	turn_params.authserver.event_base = turn_event_base_new();
@@ -1455,7 +1430,32 @@ static void setup_auth_server(void)
 	turn_params.authserver.rch = get_redis_async_connection(turn_params.authserver.event_base, turn_params.redis_statsdb, 1);
 #endif
 
-	if(pthread_create(&(turn_params.authserver.thr), NULL, run_auth_server_thread, &(turn_params.authserver))<0) {
+	struct auth_server *authserver = &turn_params.authserver;
+	struct event_base *eb = authserver->event_base;
+
+#if !defined(TURN_NO_THREAD_BARRIERS)
+	if((pthread_barrier_wait(&barrier)<0) && errno)
+		perror("barrier wait");
+#endif
+
+	while(run_auth_server_flag) {
+		run_events(eb,NULL);
+		read_userdb_file(0);
+		update_white_and_black_lists();
+		auth_ping(
+#if !defined(TURN_NO_HIREDIS)
+		authserver->rch
+#endif
+		);
+		reread_realms();
+	}
+
+	return arg;
+}
+
+static void setup_auth_server(void)
+{
+	if(pthread_create(&(turn_params.authserver.thr), NULL, run_auth_server_thread, NULL)<0) {
 		perror("Cannot create auth thread\n");
 		exit(-1);
 	}
