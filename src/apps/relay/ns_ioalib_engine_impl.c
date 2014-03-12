@@ -1218,6 +1218,7 @@ static void connect_eventcb(struct bufferevent *bev, short events, void *ptr)
 			ret->conn_cb = NULL;
 			ret->conn_arg = NULL;
 			if(ret->conn_bev) {
+				bufferevent_flush(ret->conn_bev,EV_READ|EV_WRITE,BEV_FINISHED);
 				bufferevent_disable(ret->conn_bev,EV_READ|EV_WRITE);
 				bufferevent_free(ret->conn_bev);
 				ret->conn_bev=NULL;
@@ -1231,6 +1232,7 @@ static void connect_eventcb(struct bufferevent *bev, short events, void *ptr)
 			ret->conn_cb = NULL;
 			ret->conn_arg = NULL;
 			if(ret->conn_bev) {
+				bufferevent_flush(ret->conn_bev,EV_READ|EV_WRITE,BEV_FINISHED);
 				bufferevent_disable(ret->conn_bev,EV_READ|EV_WRITE);
 				bufferevent_free(ret->conn_bev);
 				ret->conn_bev=NULL;
@@ -1277,6 +1279,7 @@ ioa_socket_handle ioa_create_connecting_tcp_relay_socket(ioa_socket_handle s, io
 	set_ioa_socket_session(ret, s->session);
 
 	if(ret->conn_bev) {
+		bufferevent_flush(ret->conn_bev,EV_READ|EV_WRITE,BEV_FINISHED);
 		bufferevent_disable(ret->conn_bev,EV_READ|EV_WRITE);
 		bufferevent_free(ret->conn_bev);
 		ret->conn_bev=NULL;
@@ -1440,11 +1443,13 @@ static void close_socket_net_data(ioa_socket_handle s)
 			s->list_ev = NULL;
 		}
 		if(s->conn_bev) {
+			bufferevent_flush(s->conn_bev,EV_READ|EV_WRITE,BEV_FINISHED);
 			bufferevent_disable(s->conn_bev,EV_READ|EV_WRITE);
 			bufferevent_free(s->conn_bev);
 			s->conn_bev=NULL;
 		}
 		if(s->bev) {
+			bufferevent_flush(s->bev,EV_READ|EV_WRITE,BEV_FINISHED);
 			bufferevent_disable(s->bev,EV_READ|EV_WRITE);
 			bufferevent_free(s->bev);
 			s->bev=NULL;
@@ -1493,6 +1498,7 @@ void detach_socket_net_data(ioa_socket_handle s)
 			s->acbarg = NULL;
 		}
 		if(s->conn_bev) {
+			bufferevent_flush(s->conn_bev,EV_READ|EV_WRITE,BEV_FINISHED);
 			bufferevent_disable(s->conn_bev,EV_READ|EV_WRITE);
 			bufferevent_free(s->conn_bev);
 			s->conn_bev=NULL;
@@ -1500,6 +1506,7 @@ void detach_socket_net_data(ioa_socket_handle s)
 			s->conn_cb=NULL;
 		}
 		if(s->bev) {
+			bufferevent_flush(s->bev,EV_READ|EV_WRITE,BEV_FINISHED);
 			bufferevent_disable(s->bev,EV_READ|EV_WRITE);
 			bufferevent_free(s->bev);
 			s->bev=NULL;
@@ -2246,7 +2253,7 @@ static int socket_input_worker(ioa_socket_handle s)
 								BEV_OPT_THREADSAFE | BEV_OPT_DEFER_CALLBACKS | BEV_OPT_UNLOCK_CALLBACKS);
 			bufferevent_setcb(s->bev, socket_input_handler_bev, NULL,
 					eventcb_bev, s);
-			bufferevent_setwatermark(s->bev, EV_READ, 1, BUFFEREVENT_HIGH_WATERMARK);
+			bufferevent_setwatermark(s->bev, EV_READ|EV_WRITE, 0, BUFFEREVENT_HIGH_WATERMARK);
 			bufferevent_enable(s->bev, EV_READ); /* Start reading. */
 		} else
 #endif //TURN_NO_TLS
@@ -2260,7 +2267,7 @@ static int socket_input_worker(ioa_socket_handle s)
 							BEV_OPT_THREADSAFE | BEV_OPT_DEFER_CALLBACKS | BEV_OPT_UNLOCK_CALLBACKS);
 			bufferevent_setcb(s->bev, socket_input_handler_bev, NULL,
 					eventcb_bev, s);
-			bufferevent_setwatermark(s->bev, EV_READ, 1, BUFFEREVENT_HIGH_WATERMARK);
+			bufferevent_setwatermark(s->bev, EV_READ|EV_WRITE, 0, BUFFEREVENT_HIGH_WATERMARK);
 			bufferevent_enable(s->bev, EV_READ); /* Start reading. */
 		}
 	}
@@ -2883,9 +2890,12 @@ int send_data_from_ioa_socket_nbh(ioa_socket_handle s, ioa_addr* dest_addr,
 
 							struct evbuffer *evb = bufferevent_get_output(s->bev);
 							if(evb) {
+								size_t maxbuff = BUFFEREVENT_MAX_UDP_TO_TCP_WRITE;
 								if((s->sat == TCP_CLIENT_DATA_SOCKET) ||
-									(s->sat == TCP_RELAY_DATA_SOCKET) ||
-									(evbuffer_get_length(evb) < ((BUFFEREVENT_HIGH_WATERMARK)>>1))) {
+									(s->sat == TCP_RELAY_DATA_SOCKET)) {
+									maxbuff = BUFFEREVENT_MAX_TCP_TO_TCP_WRITE;
+								}
+								if((evbuffer_get_length(evb)+ret) < maxbuff) {
 									if (bufferevent_write(
 										s->bev,
 										ioa_network_buffer_data(nbh),
@@ -2897,6 +2907,9 @@ int send_data_from_ioa_socket_nbh(ioa_socket_handle s, ioa_addr* dest_addr,
 										s->tobeclosed = 1;
 										s->broken = 1;
 									}
+								} else {
+									//drop the packet
+									;
 								}
 							}
 						}
@@ -3010,7 +3023,7 @@ int register_callback_on_ioa_socket(ioa_engine_handle e, ioa_socket_handle s, in
 										BEV_OPT_THREADSAFE | BEV_OPT_DEFER_CALLBACKS | BEV_OPT_UNLOCK_CALLBACKS);
 						bufferevent_setcb(s->bev, socket_input_handler_bev, NULL,
 							eventcb_bev, s);
-						bufferevent_setwatermark(s->bev, EV_READ, 1, BUFFEREVENT_HIGH_WATERMARK);
+						bufferevent_setwatermark(s->bev, EV_READ|EV_WRITE, 0, BUFFEREVENT_HIGH_WATERMARK);
 						bufferevent_enable(s->bev, EV_READ); /* Start reading. */
 					}
 					break;
@@ -3041,7 +3054,7 @@ int register_callback_on_ioa_socket(ioa_engine_handle e, ioa_socket_handle s, in
 						}
 						bufferevent_setcb(s->bev, socket_input_handler_bev, NULL,
 							eventcb_bev, s);
-						bufferevent_setwatermark(s->bev, EV_READ, 1, BUFFEREVENT_HIGH_WATERMARK);
+						bufferevent_setwatermark(s->bev, EV_READ|EV_WRITE, 0, BUFFEREVENT_HIGH_WATERMARK);
 						bufferevent_enable(s->bev, EV_READ); /* Start reading. */
 #endif
 					}
