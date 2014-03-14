@@ -200,7 +200,7 @@ struct _ioa_socket
 	band_limit_t jiffie_bytes;
 	/* RFC 6062 ==>> */
 	//Connection session:
-	void *sub_session;
+	tcp_connection *sub_session;
 	//Connect:
 	struct bufferevent *conn_bev;
 	connect_cb conn_cb;
