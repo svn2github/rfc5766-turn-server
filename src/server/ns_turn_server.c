@@ -3530,15 +3530,18 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 
 	if(!force) {
 
-		if(elem->s) {
-			clear_ioa_socket_session_if(elem->s,ss);
-			IOA_CLOSE_SOCKET(elem->s);
+		if (elem->s && server->verbose) {
+
+			char sraddr[129]="\0";
+			char sladdr[129]="\0";
+			addr_to_string(get_remote_addr_from_ioa_socket(elem->s),(u08bits*)sraddr);
+			addr_to_string(get_remote_addr_from_ioa_socket(elem->s),(u08bits*)sladdr);
+
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "session %018llu: closed (1st stage), user <%s> realm <%s> origin <%s>, local %s, remote %s, reason: %s\n",(unsigned long long)(ss->id),(char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin, sladdr,sraddr,reason);
 		}
 
-		if (server->verbose) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "session %018llu: closed (1st stage), user <%s> realm <%s> origin <%s>, reason: %s\n",
-					(unsigned long long)(ss->id), (char*)ss->username,(char*)ss->realm_options.name,(char*)ss->origin, reason);
-		}
+		IOA_CLOSE_SOCKET(elem->s);
+		IOA_CLOSE_SOCKET(ss->alloc.relay_session.s);
 
 		FUNCEND;
 
@@ -3576,10 +3579,8 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 	if (server->disconnect)
 		server->disconnect(ss);
 
-	if(elem->s) {
-		clear_ioa_socket_session_if(elem->s,ss);
-		IOA_CLOSE_SOCKET(elem->s);
-	}
+	IOA_CLOSE_SOCKET(elem->s);
+	IOA_CLOSE_SOCKET(ss->alloc.relay_session.s);
 
 	if (server->verbose) {
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "session %018llu: closed (2nd stage), user <%s> realm <%s> origin <%s>, reason: %s\n",
@@ -3994,8 +3995,6 @@ static int attach_socket_to_session(turn_turnserver* server, ioa_socket_handle s
 			ts_ur_session *newelem = &(ss->client_session);
 
 			if(newelem->s) {
-				set_ioa_socket_session(newelem->s,NULL);
-				set_ioa_socket_sub_session(newelem->s,NULL);
 				IOA_CLOSE_SOCKET(newelem->s);
 			}
 
@@ -4172,8 +4171,13 @@ static void peer_input_handler(ioa_socket_handle s, int event_type,
 			}
 
 			int ret = write_client_connection(server, ss, nbh, in_buffer->recv_ttl-1, in_buffer->recv_tos);
-			if (ret < 0)
+			if (ret < 0) {
+				if(server->verbose) {
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,
+						"session %018llu: client socket to be closed from peer handler: ss=0x%lx\n", (unsigned long long)(ss->id), (long)ss);
+				}
 				set_ioa_socket_tobeclosed(s);
+			}
 		}
 	}
 }
@@ -4219,13 +4223,13 @@ static void client_input_handler(ioa_socket_handle s, int event_type,
 	if (ret < 0) {
 		if(server->verbose) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR,
-				"session %018llu: error on client handler: s=0x%lx\n", (unsigned long long)(ss->id), (long) (elem->s));
+				"session %018llu: client socket error in client handler: s=0x%lx\n", (unsigned long long)(ss->id), (long) (elem->s));
 		}
 		set_ioa_socket_tobeclosed(s);
 	} else if (ss->to_be_closed) {
 		if(server->verbose) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,
-				"session %018llu: to be closed: ss=0x%lx\n", (unsigned long long)(ss->id), (long)ss);
+				"session %018llu: client socket to be closed in client handler: ss=0x%lx\n", (unsigned long long)(ss->id), (long)ss);
 		}
 		set_ioa_socket_tobeclosed(s);
 	}
