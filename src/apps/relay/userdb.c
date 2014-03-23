@@ -1021,7 +1021,7 @@ static char *get_real_username(char *usname)
 /*
  * Long-term mechanism password retrieval
  */
-int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
+int get_user_key(u08bits *usname, u08bits *realm, hmackey_t key, ioa_network_buffer_handle nbh)
 {
 	int ret = -1;
 
@@ -1081,7 +1081,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 							if(pwd_length<1) {
 								turn_free(pwd,strlen(pwd)+1);
 							} else {
-								if(stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)get_realm(NULL)->options.name, (u08bits*)pwd, key)>=0) {
+								if(stun_produce_integrity_key_str((u08bits*)usname, realm, (u08bits*)pwd, key)>=0) {
 
 									SHATYPE sht;
 
@@ -1235,7 +1235,7 @@ int get_user_key(u08bits *usname, hmackey_t key, ioa_network_buffer_handle nbh)
 						if (rget->type != REDIS_REPLY_NIL)
 							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", rget->type);
 					} else {
-						if(stun_produce_integrity_key_str((u08bits*)usname, (u08bits*)get_realm(NULL)->options.name, (u08bits*)rget->str, key)>=0) {
+						if(stun_produce_integrity_key_str((u08bits*)usname, realm, (u08bits*)rget->str, key)>=0) {
 							ret = 0;
 						}
 					}
@@ -1345,7 +1345,7 @@ int get_user_pwd(u08bits *usname, st_password_t pwd)
 	return ret;
 }
 
-u08bits *start_user_check(turnserver_id id, turn_credential_type ct, u08bits *usname, get_username_resume_cb resume, ioa_net_data *in_buffer, u64bits ctxkey, int *postpone_reply)
+u08bits *start_user_check(turnserver_id id, turn_credential_type ct, u08bits *usname, u08bits *realm, get_username_resume_cb resume, ioa_net_data *in_buffer, u64bits ctxkey, int *postpone_reply)
 {
 	*postpone_reply = 1;
 
@@ -1354,6 +1354,7 @@ u08bits *start_user_check(turnserver_id id, turn_credential_type ct, u08bits *us
 	am.id = id;
 	am.ct = ct;
 	STRCPY(am.username,usname);
+	STRCPY(am.realm,realm);
 	am.resume_func = resume;
 	memcpy(&(am.in_buffer),in_buffer,sizeof(ioa_net_data));
 	in_buffer->nbh = NULL;

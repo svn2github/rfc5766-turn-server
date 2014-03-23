@@ -728,8 +728,11 @@ static void cli_print_configuration(struct cli_session* cs)
 		myprintf(cs,"\n");
 
 
-		if(get_realm(NULL)->options.name[0])
-			cli_print_str(cs,get_realm(NULL)->options.name,"Default realm",0);
+		{
+			char * rn = get_realm(NULL)->options.name;
+			if(rn[0])
+				cli_print_str(cs,rn,"Default realm",0);
+		}
 		if(cs->realm[0])
 			cli_print_str(cs,cs->realm,"CLI session realm",0);
 		if(cs->origin[0])
