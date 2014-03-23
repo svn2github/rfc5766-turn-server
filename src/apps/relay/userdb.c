@@ -88,6 +88,8 @@ static const realm_params_t _default_realm_params =
 };
 
 static ur_string_map *realms = NULL;
+static turn_mutex o_to_realm_mutex;
+static ur_string_map *o_to_realm = NULL;
 
 void create_new_realm(char* name)
 {
@@ -97,6 +99,9 @@ void create_new_realm(char* name)
 		if(default_realm_params_ptr) {
 			return;
 		}
+		/* init everything: */
+		TURN_MUTEX_INIT_RECURSIVE(&o_to_realm_mutex);
+		o_to_realm = ur_string_map_create(NULL);
 		default_realm_params_ptr = (realm_params_t*)malloc(sizeof(realm_params_t));
 		ns_bcopy(&_default_realm_params,default_realm_params_ptr,sizeof(realm_params_t));
 		realms = ur_string_map_create(NULL);
@@ -165,11 +170,27 @@ int get_realm_data(char* name, realm_params_t* rp)
 
 void get_realm_options_by_origin(char *origin, realm_options_t* ro)
 {
-	//TODO
-	UNUSED_ARG(origin);
-	get_default_realm_options(ro);
+	ur_string_map_value_type value = 0;
+	TURN_MUTEX_LOCK(&o_to_realm_mutex);
+	if (ur_string_map_get(o_to_realm, (ur_string_map_key_type) origin, &value) && value) {
+		char *realm = strdup((char*)value);
+		TURN_MUTEX_UNLOCK(&o_to_realm_mutex);
+		realm_params_t rp;
+		get_realm_data(realm, &rp);
+		ns_bcopy(&(rp.options),ro,sizeof(realm_options_t));
+		free(realm);
+	} else {
+		TURN_MUTEX_UNLOCK(&o_to_realm_mutex);
+		get_default_realm_options(ro);
+	}
 }
 
+
+
+void reread_realms(void)
+{
+	//TODO
+}
 //////////// USER DB //////////////////////////////
 
 #define LONG_STRING_SIZE (TURN_LONG_STRING_SIZE)
@@ -2283,11 +2304,6 @@ void auth_ping(
 	if(rch)
 		send_message_to_redis(rch, "publish", "__XXX__", "__YYY__");
 #endif
-
-}
-
-void reread_realms(void)
-{
 
 }
 
