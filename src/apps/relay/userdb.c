@@ -89,23 +89,24 @@ static const realm_params_t _default_realm_params =
 
 static ur_string_map *realms = NULL;
 
-realm_params_t* create_realm(char* name)
+void create_new_realm(char* name)
 {
 	realm_params_t *ret = NULL;
 
 	if((name == NULL)||(name[0]==0)) {
-		ret = default_realm_params_ptr;
-		if(ret) {
-			return ret;
+		if(default_realm_params_ptr) {
+			return;
 		}
 		default_realm_params_ptr = (realm_params_t*)malloc(sizeof(realm_params_t));
 		ns_bcopy(&_default_realm_params,default_realm_params_ptr,sizeof(realm_params_t));
 		realms = ur_string_map_create(NULL);
+		ur_string_map_lock(realms);
 		ret = default_realm_params_ptr;
 		ur_string_map_value_type value = (ur_string_map_value_type)ret;
 		ur_string_map_put(realms, (ur_string_map_key_type)default_realm_params_ptr->options.name, value);
 	} else {
 		ur_string_map_value_type value = 0;
+		ur_string_map_lock(realms);
 		if (!ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
 			ret = (realm_params_t*)turn_malloc(sizeof(realm_params_t));
 			ns_bcopy(default_realm_params_ptr,ret,sizeof(realm_params_t));
@@ -113,29 +114,42 @@ realm_params_t* create_realm(char* name)
 			value = (ur_string_map_value_type)ret;
 			ur_string_map_put(realms, (ur_string_map_key_type) name, value);
 		} else {
-			ret = (realm_params_t*)value;
-			return ret;
+			ur_string_map_unlock(realms);
+			return;
 		}
 	}
 
 	ret->status.alloc_counters =  ur_string_map_create(NULL);
-
-	return ret;
+	ur_string_map_unlock(realms);
 }
 
 void get_default_realm_options(realm_options_t* ro)
 {
-	if(ro)
+	if(ro) {
+		ur_string_map_lock(realms);
 		ns_bcopy(&(default_realm_params_ptr->options),ro,sizeof(realm_options_t));
+		ur_string_map_unlock(realms);
+	}
 }
 
 realm_params_t* get_realm(char* name)
 {
 	if(name && name[0]) {
-	  ur_string_map_value_type value = 0;
-	  if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
-		  return (realm_params_t*)value;
-	  }
+		ur_string_map_lock(realms);
+		ur_string_map_value_type value = 0;
+		if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
+			ur_string_map_unlock(realms);
+			return (realm_params_t*)value;
+		} else {
+			realm_params_t *ret = (realm_params_t*)turn_malloc(sizeof(realm_params_t));
+			ns_bcopy(default_realm_params_ptr,ret,sizeof(realm_params_t));
+			STRCPY(ret->options.name,name);
+			value = (ur_string_map_value_type)ret;
+			ur_string_map_put(realms, (ur_string_map_key_type) name, value);
+			ret->status.alloc_counters =  ur_string_map_create(NULL);
+			ur_string_map_unlock(realms);
+			return ret;
+		}
 	}
 
 	return default_realm_params_ptr;
@@ -143,7 +157,9 @@ realm_params_t* get_realm(char* name)
 
 int get_realm_data(char* name, realm_params_t* rp)
 {
+	ur_string_map_lock(realms);
 	ns_bcopy(get_realm(name),rp,sizeof(realm_params_t));
+	ur_string_map_unlock(realms);
 	return 0;
 }
 
@@ -1348,50 +1364,52 @@ u08bits *start_user_check(turnserver_id id, turn_credential_type ct, u08bits *us
 	return NULL;
 }
 
-int check_new_allocation_quota(u08bits *user)
+int check_new_allocation_quota(u08bits *user, u08bits *realm)
 {
 	int ret = 0;
 	if (user) {
 		u08bits *username = (u08bits*)get_real_username((char*)user);
-		ur_string_map_lock(get_realm(NULL)->status.alloc_counters);
-		if (get_realm(NULL)->options.perf_options.total_quota && (get_realm(NULL)->status.total_current_allocs >= get_realm(NULL)->options.perf_options.total_quota)) {
+		realm_params_t *rp = get_realm((char*)realm);
+		ur_string_map_lock(rp->status.alloc_counters);
+		if (rp->options.perf_options.total_quota && (rp->status.total_current_allocs >= rp->options.perf_options.total_quota)) {
 			ret = -1;
 		} else {
 			ur_string_map_value_type value = 0;
-			if (!ur_string_map_get(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, &value)) {
+			if (!ur_string_map_get(rp->status.alloc_counters, (ur_string_map_key_type) username, &value)) {
 				value = (ur_string_map_value_type) 1;
-				ur_string_map_put(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, value);
-				++(get_realm(NULL)->status.total_current_allocs);
+				ur_string_map_put(rp->status.alloc_counters, (ur_string_map_key_type) username, value);
+				++(rp->status.total_current_allocs);
 			} else {
-				if ((get_realm(NULL)->options.perf_options.user_quota) && ((size_t) value >= (size_t)(get_realm(NULL)->options.perf_options.user_quota))) {
+				if ((rp->options.perf_options.user_quota) && ((size_t) value >= (size_t)(rp->options.perf_options.user_quota))) {
 					ret = -1;
 				} else {
 					value = (ur_string_map_value_type)(((size_t)value) + 1);
-					ur_string_map_put(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, value);
-					++(get_realm(NULL)->status.total_current_allocs);
+					ur_string_map_put(rp->status.alloc_counters, (ur_string_map_key_type) username, value);
+					++(rp->status.total_current_allocs);
 				}
 			}
 		}
 		turn_free(username,strlen(username)+1);
-		ur_string_map_unlock(get_realm(NULL)->status.alloc_counters);
+		ur_string_map_unlock(rp->status.alloc_counters);
 	}
 	return ret;
 }
 
-void release_allocation_quota(u08bits *user)
+void release_allocation_quota(u08bits *user, u08bits *realm)
 {
 	if (user) {
 		u08bits *username = (u08bits*)get_real_username((char*)user);
-		ur_string_map_lock(get_realm(NULL)->status.alloc_counters);
+		realm_params_t *rp = get_realm((char*)realm);
+		ur_string_map_lock(rp->status.alloc_counters);
 		ur_string_map_value_type value = 0;
-		ur_string_map_get(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, &value);
+		ur_string_map_get(rp->status.alloc_counters, (ur_string_map_key_type) username, &value);
 		if (value) {
 			value = (ur_string_map_value_type)(((size_t)value) - 1);
-			ur_string_map_put(get_realm(NULL)->status.alloc_counters, (ur_string_map_key_type) username, value);
+			ur_string_map_put(rp->status.alloc_counters, (ur_string_map_key_type) username, value);
 		}
-		if (get_realm(NULL)->status.total_current_allocs)
-			--(get_realm(NULL)->status.total_current_allocs);
-		ur_string_map_unlock(get_realm(NULL)->status.alloc_counters);
+		if (rp->status.total_current_allocs)
+			--(rp->status.total_current_allocs);
+		ur_string_map_unlock(rp->status.alloc_counters);
 		turn_free(username, strlen(username)+1);
 	}
 }

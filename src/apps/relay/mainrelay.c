@@ -1540,7 +1540,7 @@ int main(int argc, char **argv)
 	redis_async_init();
 #endif
 
-	create_realm(NULL);
+	create_new_realm(NULL);
 
 	init_turn_server_addrs_list(&turn_params.alternate_servers_list);
 	init_turn_server_addrs_list(&turn_params.tls_alternate_servers_list);
@@ -1685,7 +1685,7 @@ int main(int argc, char **argv)
 		if(!turn_params.default_users_db.ram_db.users_number && (turn_params.default_users_db.userdb_type == TURN_USERDB_TYPE_FILE) && !turn_params.use_auth_secret_with_timestamp) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did not specify any user account, (-u option) \n	but you did specified a long-term credentials mechanism option (-a option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
 		} else if(!get_realm(NULL)->options.name[0]) {
-			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did specify the long-term credentials usage\n but you did not specify the realm option (-r option).\n	The TURN Server will be inaccessible.\n		Check your configuration.\n");
+			TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "\nCONFIGURATION ALERT: you did specify the long-term credentials usage\n but you did not specify the default realm option (-r option).\n		Check your configuration.\n");
 		}
 	}
 

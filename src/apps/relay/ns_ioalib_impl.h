@@ -225,7 +225,7 @@ typedef struct _timer_event
 
 /* realm */
 
-realm_params_t* create_realm(char* name);
+void create_new_realm(char* name);
 int get_realm_data(char* name, realm_params_t* rp);
 
 /* engine handling */

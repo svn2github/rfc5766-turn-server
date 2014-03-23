@@ -675,8 +675,8 @@ static int turn_server_remove_all_from_ur_map_ss(ts_ur_super_session* ss) {
 		return 0;
 	else {
 		int ret = 0;
-		if(ss->alloc.is_valid) {
-			(((turn_turnserver*)ss->server)->raqcb)(ss->username);
+		if(ss->alloc.is_valid && ss->realm_set) {
+			(((turn_turnserver*)ss->server)->raqcb)(ss->username, (u08bits*)ss->realm_options.name);
 		}
 		if (ss->client_session.s) {
 			clear_ioa_socket_session_if(ss->client_session.s, ss);
@@ -1039,7 +1039,7 @@ static int handle_turn_allocate(turn_turnserver *server,
 			lifetime = stun_adjust_allocate_lifetime(lifetime);
 			u64bits out_reservation_token = 0;
 
-			if((server->chquotacb)(username)<0) {
+			if(ss->realm_set && (server->chquotacb)(username, (u08bits*)ss->realm_options.name)<0) {
 
 				*err_code = 486;
 				*reason = (const u08bits *)"Allocation Quota Reached";
@@ -1050,7 +1050,8 @@ static int handle_turn_allocate(turn_turnserver *server,
 							err_code, reason,
 							tcp_peer_accept_connection) < 0) {
 
-				(server->raqcb)(username);
+				if(ss->realm_set)
+					(server->raqcb)(username, (u08bits*)ss->realm_options.name);
 
 				if (!*err_code) {
 				  *err_code = 437;
