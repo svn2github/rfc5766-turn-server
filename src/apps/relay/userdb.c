@@ -74,6 +74,12 @@
 
 #include "apputils.h"
 
+//////////// USER DB //////////////////////////////
+
+#define LONG_STRING_SIZE (TURN_LONG_STRING_SIZE)
+
+static int donot_print_connection_success=0;
+
 //////////// REALM //////////////
 
 static realm_params_t *default_realm_params_ptr = NULL;
@@ -184,18 +190,6 @@ void get_realm_options_by_origin(char *origin, realm_options_t* ro)
 		get_default_realm_options(ro);
 	}
 }
-
-
-
-void reread_realms(void)
-{
-	//TODO
-}
-//////////// USER DB //////////////////////////////
-
-#define LONG_STRING_SIZE (TURN_LONG_STRING_SIZE)
-
-static int donot_print_connection_success=0;
 
 /////////// SHARED SECRETS /////////////////
 
@@ -2594,6 +2588,13 @@ int add_ip_list_range(char* range, ip_range_list_t * list)
 	ioa_addr_range_set(list->encaddrsranges[list->ranges_number - 1], &min, &max);
 
 	return 0;
+}
+
+/////////// REALM //////////////
+
+void reread_realms(void)
+{
+	//TODO
 }
 
 ///////////////////////////////

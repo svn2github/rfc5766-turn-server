@@ -21,7 +21,12 @@ set turn/allowed-peer-ip/345678 "172.17.13.200"
 set turn/origin/http://crinna.org:80 crinna.org
 set turn/origin/https://bligh.edu:443 crinna.org
 
+set turn/realm/north.gov/db 0
 set turn/realm/crinna.org/db 1
+
+set turn/realm/total_quota 12000
+set turn/realm/user_quota 10000
+set turn/realm/max_bps 300000
 
 save
 
@@ -35,6 +40,10 @@ set turn/user/whirrun/password "sword"
 set turn/user/stranger-come-knocking/password "civilization"
 
 set turn/secret/777888999 "north"
+
+set turn/realm/total_quota 10000
+set turn/realm/user_quota 8000
+set turn/realm/max_bps 280000
 
 save
 

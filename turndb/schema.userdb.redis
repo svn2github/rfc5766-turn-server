@@ -73,7 +73,11 @@ This example sets user database for:
   * Black and white IP peer lists used.
   * Information how to match ORIGIN field with extra
     realms (if used) and where to find the extra realms
-    information (the redis database numbers).
+    information (the redis database numbers). If no match found
+    then the default realm is used.
+  * Default realm performance parameters: "total_quota", "user_quota",
+    "max_bps" (same names as the turnserver configuration 
+    options, with the same meanings).
   
 The shell command would be:
 
@@ -98,7 +102,12 @@ set turn/allowed-peer-ip/345678 "172.17.13.200"
 set turn/origin/http://crinna.org:80 crinna.org
 set turn/origin/https://bligh.edu:443 crinna.org
 
+set turn/realm/north.gov/db 0
 set turn/realm/crinna.org/db 1
+
+set turn/realm/total_quota 12000
+set turn/realm/user_quota 10000
+set turn/realm/max_bps 300000
 
 save
 
@@ -110,6 +119,9 @@ V. Extra-realm "crinna.org" database example.
   * long-term credentials with hashed passwords and 
   	with realm "crinna.org";
   * TURN REST API with shared secret "civilization";
+  * Extra-realm performance parameters: "total_quota", "user_quota",
+    "max_bps" (same names as the turnserver configuration 
+    options, with the same meanings).
   
 $ redis-cli <<!
 
@@ -123,6 +135,10 @@ set turn/user/whirrun/password "sword"
 set turn/user/stranger-come-knocking/password "civilization"
 
 set turn/secret/777888999 "north"
+
+set turn/realm/total_quota 10000
+set turn/realm/user_quota 8000
+set turn/realm/max_bps 280000
 
 save
 
