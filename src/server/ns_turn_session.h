@@ -56,6 +56,7 @@ typedef struct _perf_options_t {
 struct _realm_options_t {
 
 	s08bits name[STUN_MAX_REALM_SIZE + 1];
+	s08bits db[STUN_MAX_REALM_SIZE + 1];
 
 	perf_options_t perf_options;
 };

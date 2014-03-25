@@ -87,7 +87,7 @@ static const realm_params_t _default_realm_params =
 {
   1,
   {
-	"\0", /* name */
+	"\0", /* name */"\0", /* db name */
     {0,0,0}
   },
   {0,NULL}
@@ -118,12 +118,12 @@ void create_new_realm(char* name)
 	} else {
 		ur_string_map_value_type value = 0;
 		ur_string_map_lock(realms);
-		if (!ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
+		if (!ur_string_map_get(realms, (const ur_string_map_key_type) name, &value)) {
 			ret = (realm_params_t*)turn_malloc(sizeof(realm_params_t));
 			ns_bcopy(default_realm_params_ptr,ret,sizeof(realm_params_t));
 			STRCPY(ret->options.name,name);
 			value = (ur_string_map_value_type)ret;
-			ur_string_map_put(realms, (ur_string_map_key_type) name, value);
+			ur_string_map_put(realms, (const ur_string_map_key_type) name, value);
 		} else {
 			ur_string_map_unlock(realms);
 			return;
@@ -148,7 +148,8 @@ realm_params_t* get_realm(char* name)
 	if(name && name[0]) {
 		ur_string_map_lock(realms);
 		ur_string_map_value_type value = 0;
-		if (ur_string_map_get(realms, (ur_string_map_key_type) name, &value)) {
+		ur_string_map_key_type key = (ur_string_map_key_type)name;
+		if (ur_string_map_get(realms, key, &value)) {
 			ur_string_map_unlock(realms);
 			return (realm_params_t*)value;
 		} else {
@@ -156,7 +157,7 @@ realm_params_t* get_realm(char* name)
 			ns_bcopy(default_realm_params_ptr,ret,sizeof(realm_params_t));
 			STRCPY(ret->options.name,name);
 			value = (ur_string_map_value_type)ret;
-			ur_string_map_put(realms, (ur_string_map_key_type) name, value);
+			ur_string_map_put(realms, key, value);
 			ret->status.alloc_counters =  ur_string_map_create(NULL);
 			ur_string_map_unlock(realms);
 			return ret;
@@ -244,10 +245,8 @@ void add_to_secrets_list(secrets_list_t *sl, const char* elem)
 
 /////////// USER DB CHECK //////////////////
 
-static persistent_users_db_t* get_persistent_users_db(const char* realm)
+static persistent_users_db_t* get_persistent_users_db(void)
 {
-	UNUSED_ARG(realm);
-	//TODO
 	return &(turn_params.default_users_db.persistent_users_db);
 }
 
@@ -300,10 +299,12 @@ static int is_redis_userdb(void)
 #if !defined(TURN_NO_PQ)
 static PGconn *get_pqdb_connection(const char *realm)
 {
+	UNUSED_ARG(realm);
+
 	if(!is_pqsql_userdb())
 		return NULL;
 
-	persistent_users_db_t *pud = get_persistent_users_db(realm);
+	persistent_users_db_t *pud = get_persistent_users_db();
 
 	PGconn *pqdbconnection = (PGconn*)(pud->connection);
 	if(pqdbconnection) {
@@ -468,10 +469,12 @@ static Myconninfo *MyconninfoParse(char *userdb, char **errmsg)
 
 static MYSQL *get_mydb_connection(const char *realm)
 {
+	UNUSED_ARG(realm);
+
 	if(!is_mysql_userdb())
 		return NULL;
 
-	persistent_users_db_t *pud = get_persistent_users_db(realm);
+	persistent_users_db_t *pud = get_persistent_users_db();
 
 	MYSQL *mydbconnection = (MYSQL*)(pud->connection);
 
@@ -516,6 +519,7 @@ static MYSQL *get_mydb_connection(const char *realm)
 					mysql_close(mydbconnection);
 					mydbconnection=NULL;
 				} else if(!donot_print_connection_success) {
+					STRCPY(get_realm(NULL)->options.db,co->dbname);
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "MySQL DB connection success: %s\n",pud->userdb);
 				}
 			}
@@ -753,12 +757,12 @@ redis_context_handle get_redis_async_connection(struct event_base *base, const c
 	return ret;
 }
 
-static redisContext *get_redis_connection(const char *realm)
+static redisContext *get_redis_connection(char *realm)
 {
 	if(!is_redis_userdb())
 		return NULL;
 
-	persistent_users_db_t *pud = get_persistent_users_db(realm);
+	persistent_users_db_t *pud = get_persistent_users_db();
 
 	redisContext *redisconnection = (redisContext*)(pud->connection);
 
@@ -814,6 +818,7 @@ static redisContext *get_redis_connection(const char *realm)
 				}
 				if (co->dbname) {
 					turnFreeRedisReply(redisCommand(redisconnection, "select %s", co->dbname));
+					STRCPY(get_realm(NULL)->options.db,co->dbname);
 				}
 				if (!donot_print_connection_success) {
 					TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "Redis DB sync connection success: %s\n", pud->userdb);
@@ -822,13 +827,28 @@ static redisContext *get_redis_connection(const char *realm)
 			RyconninfoFree(co);
 		}
 		pud->connection = redisconnection;
+
+		pud = get_persistent_users_db();
+
+		redisconnection = (redisContext*)(pud->connection);
 	}
+
+	if(redisconnection) {
+		realm_params_t rp;
+		get_realm_data(realm, &rp);
+		if(rp.options.db[0]) {
+			turnFreeRedisReply(redisCommand(redisconnection, "select %s", rp.options.db));
+		} else {
+			turnFreeRedisReply(redisCommand(redisconnection, "select 0"));
+		}
+	}
+
 	return redisconnection;
 }
 
 #endif
 
-static int get_auth_secrets(secrets_list_t *sl)
+static int get_auth_secrets(secrets_list_t *sl, u08bits *realm)
 {
 	int ret = -1;
 
@@ -908,7 +928,7 @@ static int get_auth_secrets(secrets_list_t *sl)
 #endif
 
 #if !defined(TURN_NO_HIREDIS)
-	redisContext *rc = get_redis_connection(NULL);
+	redisContext *rc = get_redis_connection((char*)realm);
 	if(rc) {
 		redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/secret/*");
 		if(reply) {
@@ -1049,7 +1069,7 @@ int get_user_key(u08bits *usname, u08bits *realm, hmackey_t key, ioa_network_buf
 
 		init_secrets_list(&sl);
 
-		if(get_auth_secrets(&sl)<0)
+		if(get_auth_secrets(&sl, realm)<0)
 			return ret;
 
 		ts = get_rest_api_timestamp((char*)usname);
@@ -1220,7 +1240,7 @@ int get_user_key(u08bits *usname, u08bits *realm, hmackey_t key, ioa_network_buf
 
 #if !defined(TURN_NO_HIREDIS)
 	{
-		redisContext * rc = get_redis_connection(NULL);
+		redisContext * rc = get_redis_connection((char*)realm);
 		if(rc) {
 			char s[LONG_STRING_SIZE];
 			snprintf(s,sizeof(s),"get turn/user/%s/key", usname);
@@ -1445,7 +1465,7 @@ void read_userdb_file(int to_print)
 
 	FILE *f = NULL;
 
-	persistent_users_db_t *pud = get_persistent_users_db(NULL);
+	persistent_users_db_t *pud = get_persistent_users_db();
 
 	if(full_path_to_userdb_file) {
 		struct stat sb;
@@ -1560,7 +1580,7 @@ int add_user_account(char *user, int dynamic)
 
 ////////////////// Admin /////////////////////////
 
-static int list_users(int is_st)
+static int list_users(int is_st, u08bits *realm)
 {
 	donot_print_connection_success = 1;
 
@@ -1630,7 +1650,7 @@ static int list_users(int is_st)
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection(NULL);
+		redisContext *rc = get_redis_connection((char*)realm);
 		if(rc) {
 			secrets_list_t keys;
 			size_t isz = 0;
@@ -1703,7 +1723,7 @@ static int list_users(int is_st)
 	return 0;
 }
 
-static int show_secret(void)
+static int show_secret(u08bits *realm)
 {
 	char statement[LONG_STRING_SIZE];
 	snprintf(statement,sizeof(statement),"select value from turn_secret");
@@ -1764,7 +1784,7 @@ static int show_secret(void)
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection(NULL);
+		redisContext *rc = get_redis_connection((char*)realm);
 		if(rc) {
 			redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/secret/*");
 			if(reply) {
@@ -1813,7 +1833,7 @@ static int show_secret(void)
 	return 0;
 }
 
-static int del_secret(u08bits *secret) {
+static int del_secret(u08bits *secret, u08bits *realm) {
 
 	UNUSED_ARG(secret);
 
@@ -1849,7 +1869,7 @@ static int del_secret(u08bits *secret) {
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection(NULL);
+		redisContext *rc = get_redis_connection((char*)realm);
 		if(rc) {
 			redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/secret/*");
 			if(reply) {
@@ -1908,14 +1928,14 @@ static int del_secret(u08bits *secret) {
 	return 0;
 }
 
-static int set_secret(u08bits *secret) {
+static int set_secret(u08bits *secret, u08bits *realm) {
 
 	if(!secret || (secret[0]==0))
 		return 0;
 
 	donot_print_connection_success = 1;
 
-	del_secret(secret);
+	del_secret(secret, realm);
 
 	if (is_pqsql_userdb()) {
 #if !defined(TURN_NO_PQ)
@@ -1952,11 +1972,11 @@ static int set_secret(u08bits *secret) {
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection(NULL);
+		redisContext *rc = get_redis_connection((char*)realm);
 		if(rc) {
 			char s[LONG_STRING_SIZE];
 
-			del_secret(secret);
+			del_secret(secret, realm);
 
 			snprintf(s,sizeof(s),"set turn/secret/%lu %s", (unsigned long)turn_time(), secret);
 
@@ -1979,19 +1999,19 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 	st_password_t passwd;
 
 	if(ct == TA_LIST_USERS) {
-		return list_users(is_st);
+		return list_users(is_st, realm);
 	}
 
 	if(ct == TA_SHOW_SECRET) {
-		return show_secret();
+		return show_secret(realm);
 	}
 
 	if(ct == TA_SET_SECRET) {
-		return set_secret(secret);
+		return set_secret(secret, realm);
 	}
 
 	if(ct == TA_DEL_SECRET) {
-		return del_secret(secret);
+		return del_secret(secret, realm);
 	}
 
 	if(ct != TA_DELETE_USER) {
@@ -2105,7 +2125,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 #endif
 	} else if(is_redis_userdb()) {
 #if !defined(TURN_NO_HIREDIS)
-		redisContext *rc = get_redis_connection(NULL);
+		redisContext *rc = get_redis_connection((char*)realm);
 		if(rc) {
 			char statement[LONG_STRING_SIZE];
 
@@ -2132,7 +2152,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 #endif
 	} else if(!is_st) {
 
-		persistent_users_db_t *pud = get_persistent_users_db(NULL);
+		persistent_users_db_t *pud = get_persistent_users_db();
 		char *full_path_to_userdb_file = find_config_file(pud->userdb, 1);
 		FILE *f = full_path_to_userdb_file ? fopen(full_path_to_userdb_file,"r") : NULL;
 		int found = 0;
