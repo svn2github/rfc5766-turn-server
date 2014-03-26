@@ -627,7 +627,7 @@ void delete_ioa_timer(ioa_timer_handle th)
 
 /************** SOCKETS HELPERS ***********************/
 
-static int ioa_socket_check_bandwidth(ioa_socket_handle s, size_t sz)
+static int ioa_socket_check_bandwidth(ioa_socket_handle s, size_t sz, int read)
 {
 	if((s->e->max_bpj != 0) && (s->sat == CLIENT_SOCKET) && s->session) {
 		band_limit_t max_bps = s->e->max_bpj;
@@ -639,18 +639,31 @@ static int ioa_socket_check_bandwidth(ioa_socket_handle s, size_t sz)
 			if(s->jiffie != s->e->jiffie) {
 				s->jiffie = s->e->jiffie;
 				if(bsz > max_bps) {
-					s->jiffie_bytes = 0;
+					if(read)
+						s->jiffie_bytes_read = 0;
+					else
+						s->jiffie_bytes_write = 0;
 					return 0;
 				} else {
-					s->jiffie_bytes = bsz;
+					if(read)
+						s->jiffie_bytes_read = bsz;
+					else
+						s->jiffie_bytes_write = bsz;
 					return 1;
 				}
 			} else {
-				band_limit_t nsz = s->jiffie_bytes + bsz;
+				band_limit_t nsz;
+				if(read)
+					nsz = s->jiffie_bytes_read + bsz;
+				else
+					nsz = s->jiffie_bytes_write + bsz;
 				if(nsz > max_bps)
 					return 0;
 				else {
-					s->jiffie_bytes = nsz;
+					if(read)
+						s->jiffie_bytes_read = nsz;
+					else
+						s->jiffie_bytes_write = nsz;
 					return 1;
 				}
 			}
@@ -2457,7 +2470,7 @@ static int socket_input_worker(ioa_socket_handle s)
 	}
 
 	if ((ret!=-1) && (len >= 0)) {
-		if(ioa_socket_check_bandwidth(s,(size_t)len)) {
+		if(ioa_socket_check_bandwidth(s,(size_t)len,1)) {
 			if(app_msg_len)
 				buf_elem->buf.len = app_msg_len;
 			else
@@ -3008,7 +3021,7 @@ int send_data_from_ioa_socket_nbh(ioa_socket_handle s, ioa_addr* dest_addr,
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "!!! %s socket: 0x%lx was closed\n", __FUNCTION__,(long)s);
 
 	} else if (nbh) {
-		if(!ioa_socket_check_bandwidth(s,ioa_network_buffer_get_size(nbh))) {
+		if(!ioa_socket_check_bandwidth(s,ioa_network_buffer_get_size(nbh),0)) {
 			/* Bandwidth exhausted, we pretend everything is fine: */
 			ret = (int)(ioa_network_buffer_get_size(nbh));
 		} else {
