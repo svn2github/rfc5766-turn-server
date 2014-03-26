@@ -26,7 +26,6 @@ set turn/realm/crinna.org/db 1
 
 set turn/realm/total_quota 12000
 set turn/realm/user_quota 10000
-set turn/realm/max_bps 300000
 
 save
 
@@ -43,7 +42,6 @@ set turn/secret/777888999 "north"
 
 set turn/realm/total_quota 10000
 set turn/realm/user_quota 8000
-set turn/realm/max_bps 280000
 
 save
 
