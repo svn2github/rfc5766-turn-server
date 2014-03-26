@@ -42,14 +42,10 @@ extern "C" {
 
 ////////// REALM ////////////
 
-typedef unsigned long band_limit_t;
-
 typedef struct _perf_options_t {
 
 	vint total_quota;
 	vint user_quota;
-
-	band_limit_t max_bps;
 
 } perf_options_t;
 

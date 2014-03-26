@@ -80,6 +80,8 @@ typedef struct _stun_buffer_list {
 	size_t tsz;
 } stun_buffer_list;
 
+typedef unsigned long band_limit_t;
+
 /*
  * New connection callback
  */
@@ -144,6 +146,8 @@ struct _ioa_engine
 #endif
   SSL_CTX *dtls_ctx;
   turn_time_t jiffie; /* bandwidth check interval */
+  band_limit_t max_bpj;
+  struct ev_token_bucket_cfg *rate_cfg;
   ioa_timer_handle timer_ev;
   s08bits cmsg[TURN_CMSG_SZ+1];
   int predef_timer_intervals[PREDEF_TIMERS_NUM];
@@ -234,7 +238,7 @@ ioa_engine_handle create_ioa_engine(super_memory_t *sm,
 				struct event_base *eb, turnipports* tp,
 				const s08bits* relay_if,
 				size_t relays_number, s08bits **relay_addrs, int default_relays,
-				int verbose
+				int verbose, band_limit_t max_bps
 #if !defined(TURN_NO_HIREDIS)
 				,const char* redis_report_connection_string
 #endif

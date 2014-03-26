@@ -88,7 +88,7 @@ static const realm_params_t _default_realm_params =
   1,
   {
 	"\0", /* name */"\0", /* db name */
-    {0,0,0}
+    {0,0}
   },
   {0,NULL}
 };

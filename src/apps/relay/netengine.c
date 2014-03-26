@@ -709,7 +709,7 @@ static ioa_engine_handle create_new_listener_engine(void)
 	TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"IO method (udp listener/relay thread): %s\n",event_base_get_method(eb));
 	super_memory_t* sm = new_super_memory_region();
 	ioa_engine_handle e = create_ioa_engine(sm, eb, turn_params.listener.tp, turn_params.relay_ifname, turn_params.relays_number, turn_params.relay_addrs,
-			turn_params.default_relays, turn_params.verbose
+			turn_params.default_relays, turn_params.verbose, turn_params.max_bps
 #if !defined(TURN_NO_HIREDIS)
 			,turn_params.redis_statsdb
 #endif
@@ -755,7 +755,7 @@ static void setup_listener(void)
 
 	turn_params.listener.ioa_eng = create_ioa_engine(sm, turn_params.listener.event_base, turn_params.listener.tp,
 			turn_params.relay_ifname, turn_params.relays_number, turn_params.relay_addrs,
-			turn_params.default_relays, turn_params.verbose
+			turn_params.default_relays, turn_params.verbose, turn_params.max_bps
 #if !defined(TURN_NO_HIREDIS)
 			,turn_params.redis_statsdb
 #endif
@@ -1329,7 +1329,7 @@ static void setup_relay_server(struct relay_server *rs, ioa_engine_handle e, int
 		rs->event_base = turn_event_base_new();
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"IO method (general relay thread): %s\n",event_base_get_method(rs->event_base));
 		rs->ioa_eng = create_ioa_engine(rs->sm, rs->event_base, turn_params.listener.tp, turn_params.relay_ifname,
-				turn_params.relays_number, turn_params.relay_addrs, turn_params.default_relays, turn_params.verbose
+			turn_params.relays_number, turn_params.relay_addrs, turn_params.default_relays, turn_params.verbose, turn_params.max_bps
 #if !defined(TURN_NO_HIREDIS)
 			,turn_params.redis_statsdb
 #endif

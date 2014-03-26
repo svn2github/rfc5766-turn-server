@@ -83,7 +83,7 @@ DEFAULT_STUN_PORT,DEFAULT_STUN_TLS_PORT,0,0,1,
 NEV_UNKNOWN, 
 { "Unknown", "UDP listening socket per session", "UDP thread per network endpoint", "UDP thread per CPU core" },
 //////////////// Relay servers //////////////////////////////////
-LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
+0,LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
 0,NULL,0,NULL,DEFAULT_GENERAL_RELAY_SERVERS_NUMBER,0,
 ////////////// Auth server /////////////////////////////////////
 {NULL,NULL,NULL,0
@@ -1060,8 +1060,8 @@ static void set_option(int c, char *value)
 		get_realm(NULL)->options.perf_options.total_quota = atoi(value);
 		break;
 	case 's':
-		get_realm(NULL)->options.perf_options.max_bps = (band_limit_t)atol(value);
-		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "%lu bytes per second allowed per session\n",(unsigned long)get_realm(NULL)->options.perf_options.max_bps);
+		turn_params.max_bps = (band_limit_t)atol(value);
+		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "%lu bytes per second allowed per session\n",(unsigned long)turn_params.max_bps);
 		break;
 	case NO_UDP_OPT:
 		turn_params.no_udp = get_bool_value(value);
