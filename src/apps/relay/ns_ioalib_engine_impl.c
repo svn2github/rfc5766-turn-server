@@ -369,12 +369,6 @@ ioa_engine_handle create_ioa_engine(super_memory_t *sm,
 		e->sm = sm;
 		e->default_relays = default_relays;
 		e->max_bpj = max_bps;
-		if(max_bps) {
-			e->rate_cfg = ev_token_bucket_cfg_new(
-					max_bps, max_bps*10,
-					max_bps, max_bps*10,
-					NULL);
-		}
 		e->verbose = verbose;
 		e->tp = tp;
 		if (eb) {
@@ -629,43 +623,45 @@ void delete_ioa_timer(ioa_timer_handle th)
 
 static int ioa_socket_check_bandwidth(ioa_socket_handle s, size_t sz, int read)
 {
-	if((s->e->max_bpj != 0) && (s->sat == CLIENT_SOCKET) && s->session) {
+	if(s && (s->e) && sz && (s->e->max_bpj != 0) && (s->sat == CLIENT_SOCKET) && s->session) {
+
 		band_limit_t max_bps = s->e->max_bpj;
-		{
-			max_bps = max_bps<<TURN_JIFFIE_SIZE;
 
-			band_limit_t bsz = (band_limit_t)sz;
+		max_bps = max_bps<<TURN_JIFFIE_SIZE;
 
-			if(s->jiffie != s->e->jiffie) {
-				s->jiffie = s->e->jiffie;
-				if(bsz > max_bps) {
-					if(read)
-						s->jiffie_bytes_read = 0;
-					else
-						s->jiffie_bytes_write = 0;
-					return 0;
-				} else {
-					if(read)
-						s->jiffie_bytes_read = bsz;
-					else
-						s->jiffie_bytes_write = bsz;
-					return 1;
-				}
+		band_limit_t bsz = (band_limit_t)sz;
+
+		if(s->jiffie != s->e->jiffie) {
+
+			s->jiffie = s->e->jiffie;
+			s->jiffie_bytes_read = 0;
+			s->jiffie_bytes_write = 0;
+
+			if(bsz > max_bps) {
+
+				return 0;
+
 			} else {
-				band_limit_t nsz;
 				if(read)
-					nsz = s->jiffie_bytes_read + bsz;
+					s->jiffie_bytes_read = bsz;
 				else
-					nsz = s->jiffie_bytes_write + bsz;
-				if(nsz > max_bps)
-					return 0;
-				else {
-					if(read)
-						s->jiffie_bytes_read = nsz;
-					else
-						s->jiffie_bytes_write = nsz;
-					return 1;
-				}
+					s->jiffie_bytes_write = bsz;
+				return 1;
+			}
+		} else {
+			band_limit_t nsz;
+			if(read)
+				nsz = s->jiffie_bytes_read + bsz;
+			else
+				nsz = s->jiffie_bytes_write + bsz;
+			if(nsz > max_bps) {
+				return 0;
+			} else {
+				if(read)
+					s->jiffie_bytes_read = nsz;
+				else
+					s->jiffie_bytes_write = nsz;
+				return 1;
 			}
 		}
 	}
@@ -2356,8 +2352,6 @@ static int socket_input_worker(ioa_socket_handle s)
 					eventcb_bev, s);
 			bufferevent_setwatermark(s->bev, EV_READ|EV_WRITE, 0, BUFFEREVENT_HIGH_WATERMARK);
 			bufferevent_enable(s->bev, EV_READ|EV_WRITE); /* Start reading. */
-			if(s->e->rate_cfg)
-				bufferevent_set_rate_limit(s->bev,s->e->rate_cfg);
 		} else
 #endif //TURN_NO_TLS
 		{
@@ -2372,8 +2366,6 @@ static int socket_input_worker(ioa_socket_handle s)
 					eventcb_bev, s);
 			bufferevent_setwatermark(s->bev, EV_READ|EV_WRITE, 0, BUFFEREVENT_HIGH_WATERMARK);
 			bufferevent_enable(s->bev, EV_READ|EV_WRITE); /* Start reading. */
-			if(s->e->rate_cfg)
-				bufferevent_set_rate_limit(s->bev,s->e->rate_cfg);
 		}
 	}
 
@@ -3175,8 +3167,6 @@ int register_callback_on_ioa_socket(ioa_engine_handle e, ioa_socket_handle s, in
 							eventcb_bev, s);
 						bufferevent_setwatermark(s->bev, EV_READ|EV_WRITE, 0, BUFFEREVENT_HIGH_WATERMARK);
 						bufferevent_enable(s->bev, EV_READ|EV_WRITE); /* Start reading. */
-						if(s->e->rate_cfg)
-							bufferevent_set_rate_limit(s->bev,s->e->rate_cfg);
 					}
 					break;
 				case TLS_SOCKET:
@@ -3208,8 +3198,6 @@ int register_callback_on_ioa_socket(ioa_engine_handle e, ioa_socket_handle s, in
 							eventcb_bev, s);
 						bufferevent_setwatermark(s->bev, EV_READ|EV_WRITE, 0, BUFFEREVENT_HIGH_WATERMARK);
 						bufferevent_enable(s->bev, EV_READ|EV_WRITE); /* Start reading. */
-						if(s->e->rate_cfg)
-							bufferevent_set_rate_limit(s->bev,s->e->rate_cfg);
 #endif
 					}
 					break;
