@@ -44,6 +44,7 @@ extern "C" {
 
 typedef struct _perf_options_t {
 
+	vint max_bps;
 	vint total_quota;
 	vint user_quota;
 
