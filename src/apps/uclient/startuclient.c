@@ -401,7 +401,7 @@ static int clnet_allocate(int verbose,
 							SHATYPE sht = clnet_info->shatype;
 							if(stun_check_message_integrity_str(get_turn_credentials_type(),
 											message.buf, (size_t)(message.len), g_uname,
-										clnet_info->realm, g_upwd, &sht)<1) {
+										clnet_info->realm, g_upwd, sht)<1) {
 								TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"Wrong integrity in allocate message received from server\n");
 								return -1;
 							}
@@ -453,7 +453,7 @@ static int clnet_allocate(int verbose,
 								SHATYPE sht = clnet_info->shatype;
 								if(stun_check_message_integrity_str(get_turn_credentials_type(),
 											message.buf, (size_t)(message.len), g_uname,
-											clnet_info->realm, g_upwd, &sht)<1) {
+											clnet_info->realm, g_upwd, sht)<1) {
 									TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"Wrong integrity in allocate message received from server\n");
 									return -1;
 								}
@@ -708,7 +708,7 @@ static int turn_channel_bind(int verbose, uint16_t *chn,
 						SHATYPE sht = clnet_info->shatype;
 						if(stun_check_message_integrity_str(get_turn_credentials_type(),
 										message.buf, (size_t)(message.len), g_uname,
-									clnet_info->realm, g_upwd, &sht)<1) {
+									clnet_info->realm, g_upwd, sht)<1) {
 							TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"Wrong integrity in channel bind message received from server\n");
 							return -1;
 						}
@@ -819,7 +819,7 @@ static int turn_create_permission(int verbose, app_ur_conn_info *clnet_info,
 						SHATYPE sht = clnet_info->shatype;
 						if(stun_check_message_integrity_str(get_turn_credentials_type(),
 										message.buf, (size_t)(message.len), g_uname,
-											clnet_info->realm, g_upwd, &sht)<1) {
+											clnet_info->realm, g_upwd, sht)<1) {
 							TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"Wrong integrity in create permission message received from server\n");
 							return -1;
 						}
@@ -1393,7 +1393,7 @@ static int turn_tcp_connection_bind(int verbose, app_ur_conn_info *clnet_info, a
 						SHATYPE sht = clnet_info->shatype;
 						if(stun_check_message_integrity_str(get_turn_credentials_type(),
 										message.buf, (size_t)(message.len), g_uname,
-									clnet_info->realm, g_upwd, &sht)<1) {
+									clnet_info->realm, g_upwd, sht)<1) {
 							TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO,"Wrong integrity in connect bind message received from server\n");
 							return -1;
 						}
