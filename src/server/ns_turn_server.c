@@ -650,8 +650,9 @@ static int turn_server_remove_all_from_ur_map_ss(ts_ur_super_session* ss) {
 		return 0;
 	else {
 		int ret = 0;
-		if(is_allocation_valid(&(ss->alloc)) && ss->realm_set) {
+		if(ss->quota_used && ss->realm_set) {
 			(((turn_turnserver*)ss->server)->raqcb)(ss->username, (u08bits*)ss->realm_options.name);
+			ss->quota_used = 0;
 		}
 		if (ss->client_session.s) {
 			clear_ioa_socket_session_if(ss->client_session.s, ss);
@@ -1014,6 +1015,8 @@ static int handle_turn_allocate(turn_turnserver *server,
 			lifetime = stun_adjust_allocate_lifetime(lifetime);
 			u64bits out_reservation_token = 0;
 
+			STRCPY(ss->username,username);
+
 			if(ss->realm_set && (server->chquotacb)(username, (u08bits*)ss->realm_options.name)<0) {
 
 				*err_code = 486;
@@ -1021,11 +1024,7 @@ static int handle_turn_allocate(turn_turnserver *server,
 
 			} else {
 
-				a = get_allocation_ss(ss);
-
-				STRCPY(ss->username,username);
-
-				set_allocation_valid(a,1);
+				ss->quota_used = 1;
 
 				if (create_relay_connection(server, ss, lifetime,
 							af, transport,
@@ -1040,6 +1039,10 @@ static int handle_turn_allocate(turn_turnserver *server,
 					}
 
 				} else {
+
+					a = get_allocation_ss(ss);
+
+					set_allocation_valid(a,1);
 
 					stun_tid_cpy(&(a->tid), tid);
 
@@ -3800,7 +3803,7 @@ static int refresh_relay_connection(turn_turnserver* server,
 	if (server && ss && is_allocation_valid(a)) {
 
 		if (lifetime < 1) {
-			ss->to_be_closed = 1;
+			set_allocation_valid(&(ss->alloc),0);
 			lifetime = 1;
 		}
 
@@ -3842,11 +3845,6 @@ static int read_client_connection(turn_turnserver *server, ts_ur_session *elem,
 	FUNCSTART;
 
 	if (!server || !elem || !ss || !in_buffer) {
-		FUNCEND;
-		return -1;
-	}
-
-	if(ss->to_be_closed || ioa_socket_tobeclosed(ss->client_session.s)) {
 		FUNCEND;
 		return -1;
 	}
