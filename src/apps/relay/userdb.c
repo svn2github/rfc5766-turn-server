@@ -113,8 +113,6 @@ void create_new_realm(char* name)
 		realms = ur_string_map_create(NULL);
 		ur_string_map_lock(realms);
 		ret = default_realm_params_ptr;
-		ur_string_map_value_type value = (ur_string_map_value_type)ret;
-		ur_string_map_put(realms, (ur_string_map_key_type)default_realm_params_ptr->options.name, value);
 	} else {
 		ur_string_map_value_type value = 0;
 		ur_string_map_lock(realms);
@@ -141,6 +139,14 @@ void get_default_realm_options(realm_options_t* ro)
 		ns_bcopy(&(default_realm_params_ptr->options),ro,sizeof(realm_options_t));
 		ur_string_map_unlock(realms);
 	}
+}
+
+void set_default_realm_name(char *realm) {
+	ur_string_map_lock(realms);
+	ur_string_map_value_type value = (ur_string_map_value_type)default_realm_params_ptr;
+	STRCPY(default_realm_params_ptr->options.name,realm);
+	ur_string_map_put(realms, (ur_string_map_key_type)default_realm_params_ptr->options.name, value);
+	ur_string_map_unlock(realms);
 }
 
 realm_params_t* get_realm(char* name)

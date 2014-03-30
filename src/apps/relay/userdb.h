@@ -161,6 +161,7 @@ typedef struct _default_users_db_t
 /////////////////////////////////////////////
 
 realm_params_t* get_realm(char* name);
+void set_default_realm_name(char *realm);
 
 /////////////////////////////////////////////
 

@@ -729,6 +729,8 @@ static void cli_print_configuration(struct cli_session* cs)
 		}
 		if(cs->realm[0])
 			cli_print_str(cs,cs->realm,"CLI session realm",0);
+		else
+			cli_print_str(cs,get_realm(NULL)->options.name,"CLI session realm",0);
 		if(cs->origin[0])
 			cli_print_str(cs,cs->origin,"CLI session origin",0);
 		if(turn_params.ct == TURN_CREDENTIALS_LONG_TERM)

@@ -1055,7 +1055,7 @@ static void set_option(int c, char *value)
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_WARNING, "WARNING: Option --secret-ts-exp-time deprecated and has no effect.\n");
 		break;
 	case 'r':
-		STRCPY(get_realm(NULL)->options.name,value);
+		set_default_realm_name(value);
 		break;
 	case 'q':
 		get_realm(NULL)->options.perf_options.user_quota = atoi(value);
@@ -1364,6 +1364,7 @@ static int adminmain(int argc, char **argv)
 			}
 			break;
 		case 'r':
+			set_default_realm_name(optarg);
 			STRCPY(realm,optarg);
 			if(SASLprep((u08bits*)realm)<0) {
 				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Wrong realm: %s\n",realm);
