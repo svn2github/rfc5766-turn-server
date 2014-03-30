@@ -325,12 +325,7 @@ int turn_session_info_copy_from(struct turn_session_info* tsi, ts_ur_super_sessi
 	if(tsi && ss) {
 		tsi->id = ss->id;
 		tsi->start_time = ss->start_time;
-		tsi->valid = ss->alloc.is_valid;
-		if(tsi->valid) {
-			if(ss->to_be_closed) {
-				tsi->valid = 0;
-			}
-		}
+		tsi->valid = is_allocation_valid(&(ss->alloc)) && !(ss->to_be_closed);
 		if(tsi->valid) {
 			tsi->expiration_time = ss->alloc.expiration_time;
 			if(ss->client_session.s) {
@@ -655,7 +650,7 @@ static int turn_server_remove_all_from_ur_map_ss(ts_ur_super_session* ss) {
 		return 0;
 	else {
 		int ret = 0;
-		if(ss->alloc.is_valid && ss->realm_set) {
+		if(is_allocation_valid(&(ss->alloc)) && ss->realm_set) {
 			(((turn_turnserver*)ss->server)->raqcb)(ss->username, (u08bits*)ss->realm_options.name);
 		}
 		if (ss->client_session.s) {
@@ -1024,52 +1019,53 @@ static int handle_turn_allocate(turn_turnserver *server,
 				*err_code = 486;
 				*reason = (const u08bits *)"Allocation Quota Reached";
 
-			} else if (create_relay_connection(server, ss, lifetime,
+			} else {
+
+				a = get_allocation_ss(ss);
+
+				STRCPY(ss->username,username);
+
+				set_allocation_valid(a,1);
+
+				if (create_relay_connection(server, ss, lifetime,
 							af, transport,
 							even_port, in_reservation_token, &out_reservation_token,
 							err_code, reason,
 							tcp_peer_accept_connection) < 0) {
 
-				if(ss->realm_set)
-					(server->raqcb)(username, (u08bits*)ss->realm_options.name);
-
-				if (!*err_code) {
-				  *err_code = 437;
-				  if(!(*reason))
-				    *reason = (const u08bits *)"Cannot create relay endpoint";
-				}
-
-			} else {
-
-				a = get_allocation_ss(ss);
-				set_allocation_valid(a,1);
-
-				STRCPY(ss->username,username);
-
-				stun_tid_cpy(&(a->tid), tid);
-
-				size_t len = ioa_network_buffer_get_size(nbh);
-
-				ioa_addr xor_relayed_addr;
-				ioa_addr *relayed_addr = get_local_addr_from_ioa_socket(get_relay_socket_ss(ss));
-				if(relayed_addr) {
-					if(server->external_ip_set) {
-						addr_cpy(&xor_relayed_addr, &(server->external_ip));
-						addr_set_port(&xor_relayed_addr,addr_get_port(relayed_addr));
-					} else {
-						addr_cpy(&xor_relayed_addr, relayed_addr);
+					if (!*err_code) {
+						*err_code = 437;
+						if(!(*reason))
+							*reason = (const u08bits *)"Cannot create relay endpoint";
 					}
 
-					stun_set_allocate_response_str(ioa_network_buffer_data(nbh), &len, tid,
+				} else {
+
+					stun_tid_cpy(&(a->tid), tid);
+
+					size_t len = ioa_network_buffer_get_size(nbh);
+
+					ioa_addr xor_relayed_addr;
+					ioa_addr *relayed_addr = get_local_addr_from_ioa_socket(get_relay_socket_ss(ss));
+					if(relayed_addr) {
+						if(server->external_ip_set) {
+							addr_cpy(&xor_relayed_addr, &(server->external_ip));
+							addr_set_port(&xor_relayed_addr,addr_get_port(relayed_addr));
+						} else {
+							addr_cpy(&xor_relayed_addr, relayed_addr);
+						}
+
+						stun_set_allocate_response_str(ioa_network_buffer_data(nbh), &len, tid,
 									&xor_relayed_addr,
 									get_remote_addr_from_ioa_socket(elem->s), lifetime,
 									0,NULL,
 									out_reservation_token,
 									ss->s_mobile_id);
-					ioa_network_buffer_set_size(nbh,len);
-					*resp_constructed = 1;
+						ioa_network_buffer_set_size(nbh,len);
+						*resp_constructed = 1;
 
-					turn_report_allocation_set(&(ss->alloc), lifetime, 0);
+						turn_report_allocation_set(&(ss->alloc), lifetime, 0);
+					}
 				}
 			}
 		}
@@ -3688,7 +3684,7 @@ static void client_ss_allocation_timeout_handler(ioa_engine_handle e, void *arg)
 
 	FUNCSTART;
 
-	shutdown_client_connection(server, ss, 1, "allocation timeout");
+	shutdown_client_connection(server, ss, 0, "allocation timeout");
 
 	FUNCEND;
 }
@@ -3804,7 +3800,7 @@ static int refresh_relay_connection(turn_turnserver* server,
 	if (server && ss && is_allocation_valid(a)) {
 
 		if (lifetime < 1) {
-			set_allocation_valid(a, 0);
+			ss->to_be_closed = 1;
 			lifetime = 1;
 		}
 
@@ -3846,6 +3842,11 @@ static int read_client_connection(turn_turnserver *server, ts_ur_session *elem,
 	FUNCSTART;
 
 	if (!server || !elem || !ss || !in_buffer) {
+		FUNCEND;
+		return -1;
+	}
+
+	if(ss->to_be_closed || ioa_socket_tobeclosed(ss->client_session.s)) {
 		FUNCEND;
 		return -1;
 	}
