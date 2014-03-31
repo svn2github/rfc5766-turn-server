@@ -1420,7 +1420,7 @@ int check_new_allocation_quota(u08bits *user, u08bits *realm)
 		ur_string_map_lock(rp->status.alloc_counters);
 		if (rp->options.perf_options.total_quota && (rp->status.total_current_allocs >= rp->options.perf_options.total_quota)) {
 			ret = -1;
-		} else {
+		} else if(username[0]){
 			ur_string_map_value_type value = 0;
 			if (!ur_string_map_get(rp->status.alloc_counters, (ur_string_map_key_type) username, &value)) {
 				value = (ur_string_map_value_type) 1;
@@ -1435,6 +1435,8 @@ int check_new_allocation_quota(u08bits *user, u08bits *realm)
 					++(rp->status.total_current_allocs);
 				}
 			}
+		} else {
+			++(rp->status.total_current_allocs);
 		}
 		turn_free(username,strlen(username)+1);
 		ur_string_map_unlock(rp->status.alloc_counters);
