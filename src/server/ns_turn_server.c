@@ -1626,7 +1626,14 @@ static int tcp_start_connection_to_peer(turn_turnserver *server, ts_ur_super_ses
 {
 	FUNCSTART;
 
-	if(!ss || !(a->relay_session.s)) {
+	if(!ss) {
+		*err_code = 500;
+		*reason = (const u08bits *)"Server error: empty session";
+		FUNCEND;
+		return -1;
+	}
+
+	if(!(a->relay_session.s)) {
 		*err_code = 500;
 		*reason = (const u08bits *)"Server error: no relay connection created";
 		FUNCEND;
