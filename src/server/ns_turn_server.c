@@ -1277,6 +1277,9 @@ static int handle_turn_refresh(turn_turnserver *server,
 					} else if(!(ss->client_session.s)) {
 						*err_code = 500;
 						*reason = (const u08bits *)"Software error: invalid mobile client socket (new)";
+					} else if(strcmp(ss->realm_options.name,orig_ss->realm_options.name)) {
+						*err_code = 404;
+						*reason = (const u08bits *)"Allocation not found in the current realm";
 					} else {
 
 						//Check security:
