@@ -121,6 +121,9 @@ static const char *CLI_HELP_STR[] =
    "  tc <param-name> - toggle a configuration parameter",
    "     (see pc command output for togglable param names)",
    "",
+   "  cc <param-name> <param-value> - change a configuration parameter",
+   "     (see pc command output for changeable param names)",
+   "",
    "  ps [username] - print sessions, with optional exact user match",
    "",
    "  psp <usernamestr> - print sessions, with partial user string match",
@@ -221,8 +224,10 @@ static void cli_print_uint(struct cli_session* cs, unsigned long value, const ch
 {
 	if(cs && cs->ts && name) {
 		const char *sc="";
-		if(changeable)
+		if(changeable==1)
 			sc=" (*)";
+		else if(changeable==2)
+			sc=" (**)";
 		myprintf(cs,"  %s: %lu%s\n",name,value,sc);
 	}
 }
@@ -233,8 +238,10 @@ static void cli_print_str(struct cli_session* cs, const char *value, const char*
 		if(value[0] == 0)
 			value="empty";
 		const char *sc="";
-		if(changeable)
+		if(changeable==1)
 			sc=" (*)";
+		else if(changeable==2)
+			sc=" (**)";
 		myprintf(cs,"  %s: %s%s\n",name,value,sc);
 	}
 }
@@ -243,8 +250,10 @@ static void cli_print_addr(struct cli_session* cs, ioa_addr *value, int use_port
 {
 	if(cs && cs->ts && name && value) {
 		const char *sc="";
-		if(changeable)
+		if(changeable==1)
 			sc=" (*)";
+		else if(changeable==2)
+			sc=" (**)";
 		char s[256];
 		if(!use_port)
 			addr_to_string_no_port(value,(u08bits*)s);
@@ -258,8 +267,10 @@ static void cli_print_addr_list(struct cli_session* cs, turn_server_addrs_list_t
 {
 	if(cs && cs->ts && name && value && value->size && value->addrs) {
 		const char *sc="";
-		if(changeable)
+		if(changeable==1)
 			sc=" (*)";
+		else if(changeable==2)
+			sc=" (**)";
 		char s[256];
 		size_t i;
 		for(i=0;i<value->size;i++) {
@@ -276,8 +287,10 @@ static void cli_print_str_array(struct cli_session* cs, char **value, size_t sz,
 {
 	if(cs && cs->ts && name && value && sz) {
 		const char *sc="";
-		if(changeable)
+		if(changeable==1)
 			sc=" (*)";
+		else if(changeable==2)
+			sc=" (**)";
 		size_t i;
 		for(i=0;i<sz;i++) {
 			if(value[i])
@@ -290,8 +303,10 @@ static void cli_print_ip_range_list(struct cli_session* cs, ip_range_list_t *val
 {
 	if(cs && cs->ts && name && value && value->ranges_number && value->ranges) {
 		const char *sc="";
-		if(changeable)
+		if(changeable==1)
 			sc=" (*)";
+		else if(changeable==2)
+			sc=" (**)";
 		size_t i;
 		for(i=0;i<value->ranges_number;++i) {
 			if(value->ranges[i])
@@ -328,6 +343,30 @@ static void toggle_cli_param(struct cli_session* cs, const char* pn)
 		}
 
 		myprintf(cs,"\n");
+	}
+}
+
+static void change_cli_param(struct cli_session* cs, const char* pn)
+{
+	if(cs && cs->ts && pn) {
+
+		if(strstr(pn,"total-quota")==pn) {
+			int new_quota = change_total_quota(cs->realm, atoi(pn+strlen("total-quota")));
+			cli_print_uint(cs,(unsigned long)new_quota,"total-quota",2);
+			return;
+		} else if(strstr(pn,"user-quota")==pn) {
+			int new_quota = change_user_quota(cs->realm, atoi(pn+strlen("user-quota")));
+			cli_print_uint(cs,(unsigned long)new_quota,"user-quota",2);
+			return;
+		} else if(strstr(pn,"cli-max-output-sessions")==pn) {
+			cli_max_output_sessions = atoi(pn+strlen("cli-max-output-sessions"));
+			cli_print_uint(cs,(unsigned long)cli_max_output_sessions,"cli-max-output-sessions",2);
+			return;
+		}
+
+		myprintf(cs, "\n");
+		myprintf(cs, "  Error: unknown or constant parameter: %s.\n",pn);
+		myprintf(cs, "\n");
 	}
 }
 
@@ -747,8 +786,8 @@ static void cli_print_configuration(struct cli_session* cs)
 
 		cli_print_uint(cs,(unsigned long)cs->rp->status.total_current_allocs,"total-current-allocs",0);
 
-		cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.total_quota,"total-quota",0);
-		cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.user_quota,"user-quota",0);
+		cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.total_quota,"total-quota",2);
+		cli_print_uint(cs,(unsigned long)cs->rp->options.perf_options.user_quota,"user-quota",2);
 		cli_print_uint(cs,(unsigned long)turn_params.max_bps,"max-bps",0);
 
 		myprintf(cs,"\n");
@@ -758,6 +797,9 @@ static void cli_print_configuration(struct cli_session* cs)
 		{
 		  myprintf(cs,"\n");
 		  const char *str="  (Note 1: parameters with (*) are toggleable)";
+		  myprintf(cs,"%s\n",str);
+		  myprintf(cs,"\n");
+		  str="  (Note 2: parameters with (**) are changeable)";
 		  myprintf(cs,"%s\n",str);
 		  myprintf(cs,"\n");
 		}
@@ -950,6 +992,12 @@ static int run_cli_input(struct cli_session* cs, const char *buf0, unsigned int 
 				type_cli_cursor(cs);
 			} else if(strstr(cmd,"ps") == cmd) {
 				print_sessions(cs,cmd+2,1,0);
+				type_cli_cursor(cs);
+			} else if(strstr(cmd,"cc ") == cmd) {
+				change_cli_param(cs,cmd+3);
+				type_cli_cursor(cs);
+			} else if(strstr(cmd,"cc") == cmd) {
+				change_cli_param(cs,cmd+2);
 				type_cli_cursor(cs);
 			} else if(strstr(cmd,"aas ") == cmd) {
 				cli_add_alternate_server(cs,cmd+4);

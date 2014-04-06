@@ -198,6 +198,26 @@ void get_realm_options_by_origin(char *origin, realm_options_t* ro)
 	}
 }
 
+int change_total_quota(char *realm, int value)
+{
+	int ret = value;
+	ur_string_map_lock(realms);
+	realm_params_t* rp = get_realm(realm);
+	rp->options.perf_options.total_quota = value;
+	ur_string_map_unlock(realms);
+	return ret;
+}
+
+int change_user_quota(char *realm, int value)
+{
+	int ret = value;
+	ur_string_map_lock(realms);
+	realm_params_t* rp = get_realm(realm);
+	rp->options.perf_options.user_quota = value;
+	ur_string_map_unlock(realms);
+	return ret;
+}
+
 /////////// SHARED SECRETS /////////////////
 
 void init_secrets_list(secrets_list_t *sl)
