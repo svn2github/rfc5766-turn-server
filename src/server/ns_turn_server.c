@@ -3584,7 +3584,6 @@ int shutdown_client_connection(turn_turnserver *server, ts_ur_super_session *ss,
 		}
 
 		IOA_CLOSE_SOCKET(elem->s);
-		IOA_CLOSE_SOCKET(ss->alloc.relay_session.s);
 
 		FUNCEND;
 
