@@ -211,6 +211,7 @@ struct _ioa_socket
 	void *conn_arg;
 	//Transferable sockets user data
 	u32bits username_hash;
+	u32bits realm_hash;
 	//Accept:
 	struct evconnlistener *list_ev;
 	accept_cb acb;

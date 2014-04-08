@@ -2009,7 +2009,7 @@ int turnserver_accept_tcp_client_data_connection(turn_turnserver *server, tcp_co
 				err_code = 500;
 			} else {
 				ss = (ts_ur_super_session*)(a->owner);
-				if(!check_username_hash(s,ss->username)) {
+				if(!check_username_hash(s,ss->username,(u08bits*)ss->realm_options.name)) {
 					err_code = 401;
 				} else {
 					tc->state = TC_STATE_READY;
@@ -2916,7 +2916,7 @@ static int check_stun_auth(turn_turnserver *server,
 		}
 	} else {
 		STRCPY(ss->username,usname);
-		set_username_hash(ss->client_session.s,ss->username);
+		set_username_hash(ss->client_session.s,ss->username,(u08bits*)ss->realm_options.name);
 	}
 
 	if(server->ct != TURN_CREDENTIALS_SHORT_TERM) {
@@ -3789,7 +3789,7 @@ static int create_relay_connection(turn_turnserver* server,
 				return -1;
 			}
 
-			if(!check_username_hash(newelem->s,ss->username)) {
+			if(!check_username_hash(newelem->s,ss->username,(u08bits*)ss->realm_options.name)) {
 				IOA_CLOSE_SOCKET(newelem->s);
 				*err_code = 508;
 				*reason = (const u08bits *)"Cannot find a valid reserved socket for this username";
@@ -3823,11 +3823,11 @@ static int create_relay_connection(turn_turnserver* server,
 			return -1;
 		}
 
-		set_username_hash(newelem->s,ss->username);
+		set_username_hash(newelem->s,ss->username,(u08bits*)ss->realm_options.name);
 
 		if (rtcp_s) {
 			if (out_reservation_token && *out_reservation_token) {
-				set_username_hash(rtcp_s,ss->username);
+				set_username_hash(rtcp_s,ss->username,(u08bits*)ss->realm_options.name);
 				/* OK */
 			} else {
 				IOA_CLOSE_SOCKET(newelem->s);
