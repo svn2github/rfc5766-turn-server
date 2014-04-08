@@ -107,7 +107,7 @@ void create_new_realm(char* name)
 		}
 		/* init everything: */
 		TURN_MUTEX_INIT_RECURSIVE(&o_to_realm_mutex);
-		o_to_realm = ur_string_map_create(NULL);
+		o_to_realm = ur_string_map_create(free);
 		default_realm_params_ptr = (realm_params_t*)malloc(sizeof(realm_params_t));
 		ns_bcopy(&_default_realm_params,default_realm_params_ptr,sizeof(realm_params_t));
 		realms = ur_string_map_create(NULL);
@@ -2654,6 +2654,64 @@ int add_ip_list_range(char* range, ip_range_list_t * list)
 void reread_realms(void)
 {
 	//TODO
+
+#if !defined(TURN_NO_HIREDIS)
+	redisContext *rc = get_redis_connection(NULL);
+	if(rc) {
+		redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/origin/*");
+		if(reply) {
+
+			ur_string_map *o_to_realm_new = ur_string_map_create(free);
+
+			secrets_list_t keys;
+			size_t isz = 0;
+			char s[257];
+
+			init_secrets_list(&keys);
+
+			if (reply->type == REDIS_REPLY_ERROR)
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", reply->str);
+			else if (reply->type != REDIS_REPLY_ARRAY) {
+				if (reply->type != REDIS_REPLY_NIL)
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", reply->type);
+			} else {
+				size_t i;
+				for (i = 0; i < reply->elements; ++i) {
+					add_to_secrets_list(&keys,reply->element[i]->str);
+				}
+			}
+
+			size_t offset = strlen("turn/origin/");
+
+			for(isz=0;isz<keys.sz;++isz) {
+				char *origin = keys.secrets[isz] + offset;
+				snprintf(s,sizeof(s),"get %s", keys.secrets[isz]);
+				redisReply *rget = (redisReply *)redisCommand(rc, s);
+				if(rget) {
+					if (rget->type == REDIS_REPLY_ERROR)
+						TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", rget->str);
+					else if (rget->type != REDIS_REPLY_STRING) {
+						if (rget->type != REDIS_REPLY_NIL)
+							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", rget->type);
+					} else {
+						ur_string_map_value_type value = strdup(rget->str);
+						ur_string_map_put(o_to_realm_new, (const ur_string_map_key_type) origin, value);
+					}
+					turnFreeRedisReply(rget);
+				}
+			}
+
+			clean_secrets_list(&keys);
+
+			TURN_MUTEX_LOCK(&o_to_realm_mutex);
+			ur_string_map_free(&o_to_realm);
+			o_to_realm = o_to_realm_new;
+			TURN_MUTEX_UNLOCK(&o_to_realm_mutex);
+
+			turnFreeRedisReply(reply);
+		}
+	}
+#endif
 }
 
 ///////////////////////////////

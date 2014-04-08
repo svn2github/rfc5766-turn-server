@@ -12,7 +12,7 @@ there must be key "turn/user/gorst/key" with value
 be stored in clear text format. Then the key will be 
 "turn/user/gorst/password" and the key will be simply "hero".
 
-2) For the short-term credentials, the passwords are stored always on
+2) For the short-term credentials, the passwords are stored always in
 clear text format. So, there will be key "turn/user/gorst/password" and 
 the value will be "hero".
 
