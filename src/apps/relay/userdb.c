@@ -2656,6 +2656,7 @@ void reread_realms(void)
 	//TODO
 
 #if !defined(TURN_NO_HIREDIS)
+	{
 	redisContext *rc = get_redis_connection(NULL);
 	if(rc) {
 		redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/origin/*");
@@ -2665,7 +2666,8 @@ void reread_realms(void)
 
 			secrets_list_t keys;
 			size_t isz = 0;
-			char s[257];
+
+			char s[1025];
 
 			init_secrets_list(&keys);
 
@@ -2710,6 +2712,122 @@ void reread_realms(void)
 
 			turnFreeRedisReply(reply);
 		}
+	}
+
+	secrets_list_t realms_list;
+	init_secrets_list(&realms_list);
+
+	if(rc) {
+		redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/realm/*/db");
+		if(reply) {
+
+			secrets_list_t keys;
+			size_t isz = 0;
+
+			char s[1025];
+
+			init_secrets_list(&keys);
+
+			if (reply->type == REDIS_REPLY_ERROR)
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", reply->str);
+			else if (reply->type != REDIS_REPLY_ARRAY) {
+				if (reply->type != REDIS_REPLY_NIL)
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", reply->type);
+			} else {
+				size_t i;
+				for (i = 0; i < reply->elements; ++i) {
+					add_to_secrets_list(&keys,reply->element[i]->str);
+				}
+			}
+
+			size_t offset = strlen("turn/realm/");
+
+			for(isz=0;isz<keys.sz;++isz) {
+				char *realm = keys.secrets[isz] + offset;
+				size_t rlen=strlen(realm);
+				if(rlen<4)
+					continue;
+				snprintf(s,sizeof(s),"get %s", keys.secrets[isz]);
+				redisReply *rget = (redisReply *)redisCommand(rc, s);
+				if(rget) {
+					if (rget->type == REDIS_REPLY_ERROR)
+						TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", rget->str);
+					else if (rget->type != REDIS_REPLY_STRING) {
+						if (rget->type != REDIS_REPLY_NIL)
+							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", rget->type);
+					} else {
+						realm[rlen-3]=0;
+						realm_params_t* rp = get_realm(realm);
+						add_to_secrets_list(&realms_list,realm);
+						realm[rlen-3]='/';
+						if(rp) {
+							ur_string_map_lock(realms);
+							STRCPY(rp->options.db,rget->str);
+							ur_string_map_unlock(realms);
+						}
+					}
+					turnFreeRedisReply(rget);
+				}
+			}
+
+			clean_secrets_list(&keys);
+
+			turnFreeRedisReply(reply);
+		}
+	}
+	size_t rlsz = 0;
+	for(rlsz=0;rlsz<realms_list.sz;++rlsz) {
+		char *realm = realms_list.secrets[rlsz];
+		realm_params_t* rp = get_realm(realm);
+		rc = get_redis_connection(realm);
+		redisReply *rget = NULL;
+
+		rget = (redisReply *)redisCommand(rc, "get turn/realm/max_bps");
+		if(rget) {
+			if (rget->type == REDIS_REPLY_ERROR)
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", rget->str);
+			else if (rget->type != REDIS_REPLY_STRING) {
+				if (rget->type != REDIS_REPLY_NIL)
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", rget->type);
+			} else {
+				ur_string_map_lock(realms);
+				rp->options.perf_options.max_bps = atoi(rget->str);
+				ur_string_map_unlock(realms);
+			}
+			turnFreeRedisReply(rget);
+		}
+
+		rget = (redisReply *)redisCommand(rc, "get turn/realm/total_quota");
+		if(rget) {
+			if (rget->type == REDIS_REPLY_ERROR)
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", rget->str);
+			else if (rget->type != REDIS_REPLY_STRING) {
+				if (rget->type != REDIS_REPLY_NIL)
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", rget->type);
+			} else {
+				ur_string_map_lock(realms);
+				rp->options.perf_options.total_quota = atoi(rget->str);
+				ur_string_map_unlock(realms);
+			}
+			turnFreeRedisReply(rget);
+		}
+
+		rget = (redisReply *)redisCommand(rc, "get turn/realm/user_quota");
+		if(rget) {
+			if (rget->type == REDIS_REPLY_ERROR)
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", rget->str);
+			else if (rget->type != REDIS_REPLY_STRING) {
+				if (rget->type != REDIS_REPLY_NIL)
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", rget->type);
+			} else {
+				ur_string_map_lock(realms);
+				rp->options.perf_options.user_quota = atoi(rget->str);
+				ur_string_map_unlock(realms);
+			}
+			turnFreeRedisReply(rget);
+		}
+	}
+	clean_secrets_list(&realms_list);
 	}
 #endif
 }

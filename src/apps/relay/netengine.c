@@ -1474,6 +1474,7 @@ static void* run_auth_server_thread(void *arg)
 	barrier_wait();
 
 	while(run_auth_server_flag) {
+		reread_realms();
 		run_events(eb,NULL);
 		read_userdb_file(0);
 		update_white_and_black_lists();
@@ -1482,7 +1483,6 @@ static void* run_auth_server_thread(void *arg)
 		authserver->rch
 #endif
 		);
-		reread_realms();
 	}
 
 	return arg;
