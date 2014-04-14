@@ -1277,10 +1277,9 @@ static int handle_turn_refresh(turn_turnserver *server,
 					} else if(!(ss->client_session.s)) {
 						*err_code = 500;
 						*reason = (const u08bits *)"Software error: invalid mobile client socket (new)";
-					} else if(strcmp(ss->realm_options.name,orig_ss->realm_options.name)) {
-						*err_code = 404;
-						*reason = (const u08bits *)"Allocation not found in the current realm";
 					} else {
+
+						get_realm_options_by_name(orig_ss->realm_options.name, &(ss->realm_options));
 
 						//Check security:
 						int postpone_reply = 0;
@@ -2885,7 +2884,11 @@ static int check_stun_auth(turn_turnserver *server,
 		ns_bcopy(stun_attr_get_value(sar),realm,alen);
 		realm[alen]=0;
 
-		if(strcmp((char*)realm, (char*)(ss->realm_options.name))) {
+		if(method == STUN_METHOD_CONNECTION_BIND) {
+
+			get_realm_options_by_name((char *)realm, &(ss->realm_options));
+
+		} else if(strcmp((char*)realm, (char*)(ss->realm_options.name))) {
 			*err_code = 400;
 			*reason = (const u08bits*)"Bad request: the realm value incorrect";
 			return -1;
