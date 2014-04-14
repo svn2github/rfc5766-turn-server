@@ -2767,10 +2767,15 @@ void reread_realms(void)
 			}
 
 			{
+				size_t i = 0;
 				size_t rlsz = 0;
 
-				for (rlsz = 0; rlsz < realms_list.sz; ++rlsz) {
-					char *realm = realms_list.secrets[rlsz];
+				ur_string_map_lock(realms);
+				rlsz = realms_list.sz;
+				ur_string_map_unlock(realms);
+
+				for (i = 0; i<rlsz; ++i) {
+					char *realm = realms_list.secrets[i];
 					realm_params_t* rp = get_realm(realm);
 					set_redis_realm_opt(realm,"max_bps",&(rp->options.perf_options.max_bps));
 					set_redis_realm_opt(realm,"max-bps",&(rp->options.perf_options.max_bps));
