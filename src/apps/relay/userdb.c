@@ -1843,7 +1843,12 @@ static int show_secret(u08bits *realm)
 #if !defined(TURN_NO_HIREDIS)
 		redisContext *rc = get_redis_connection();
 		if(rc) {
-			redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/realm/%s/secret/*",(char*)realm);
+			redisReply *reply = NULL;
+			if(realm && realm[0]) {
+				reply = (redisReply*)redisCommand(rc, "keys turn/realm/%s/secret/*",(char*)realm);
+			} else {
+				reply = (redisReply*)redisCommand(rc, "keys turn/realm/*/secret/*");
+			}
 			if(reply) {
 				secrets_list_t keys;
 				size_t isz = 0;
