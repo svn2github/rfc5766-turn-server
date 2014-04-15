@@ -230,6 +230,15 @@ int change_user_quota(char *realm, int value)
 	return ret;
 }
 
+static void must_set_admin_realm(void *realm0)
+{
+	char* realm = (char*)realm0;
+	if(!realm || !realm[0]) {
+		fprintf(stderr, "The operation cannot be completed: rhe realm must be set.\n");
+		exit(-1);
+	}
+}
+
 /////////// SHARED SECRETS /////////////////
 
 void init_secrets_list(secrets_list_t *sl)
@@ -1899,6 +1908,8 @@ static int del_secret(u08bits *secret, u08bits *realm) {
 
 	UNUSED_ARG(secret);
 
+	must_set_admin_realm(realm);
+
 	donot_print_connection_success=1;
 
 	if (is_pqsql_userdb()) {
@@ -1994,6 +2005,8 @@ static int set_secret(u08bits *secret, u08bits *realm) {
 
 	if(!secret || (secret[0]==0))
 		return 0;
+
+	must_set_admin_realm(realm);
 
 	donot_print_connection_success = 1;
 
