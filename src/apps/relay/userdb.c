@@ -239,6 +239,24 @@ static void must_set_admin_realm(void *realm0)
 	}
 }
 
+static void must_set_admin_user(void *user0)
+{
+	char* user = (char*)user0;
+	if(!user || !user[0]) {
+		fprintf(stderr, "The operation cannot be completed: rhe user must be set.\n");
+		exit(-1);
+	}
+}
+
+static void must_set_admin_pwd(void *pwd0)
+{
+	char* pwd = (char*)pwd0;
+	if(!pwd || !pwd[0]) {
+		fprintf(stderr, "The operation cannot be completed: rhe password must be set.\n");
+		exit(-1);
+	}
+}
+
 /////////// SHARED SECRETS /////////////////
 
 void init_secrets_list(secrets_list_t *sl)
@@ -2090,13 +2108,14 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 	}
 
 	if(ct != TA_DELETE_USER) {
+
+		must_set_admin_pwd(pwd);
+		must_set_admin_user(user);
+
 		if(is_st) {
 			strncpy((char*)passwd,(char*)pwd,sizeof(st_password_t));
 		} else {
-			if(!(realm[0])) {
-				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: with long-term mechanism, you must specify the realm !\n");
-				exit(-1);
-			}
+			must_set_admin_realm(realm);
 			stun_produce_integrity_key_str(user, realm, pwd, key, turn_params.shatype);
 			size_t i = 0;
 			size_t sz = get_hmackey_size(turn_params.shatype);
