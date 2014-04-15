@@ -1694,7 +1694,13 @@ static int list_users(int is_st, u08bits *realm)
 			redisReply *reply = NULL;
 
 			if(!is_st) {
-				redisReply *reply = (redisReply*)redisCommand(rc, "keys turn/realm/%s/user/*/key", (char*)realm);
+
+				redisReply *reply = NULL;
+				if(realm && realm[0]) {
+					reply = (redisReply*)redisCommand(rc, "keys turn/realm/%s/user/*/key", (char*)realm);
+				} else {
+					reply = (redisReply*)redisCommand(rc, "keys turn/realm/*/user/*/key");
+				}
 				if(reply) {
 
 					if (reply->type == REDIS_REPLY_ERROR)
@@ -1711,7 +1717,11 @@ static int list_users(int is_st, u08bits *realm)
 					turnFreeRedisReply(reply);
 				}
 
-				reply = (redisReply*)redisCommand(rc, "keys turn/realm/%s/user/*/password", (char*)realm);
+				if(realm && realm[0]) {
+					reply = (redisReply*)redisCommand(rc, "keys turn/realm/%s/user/*/password", (char*)realm);
+				} else {
+					reply = (redisReply*)redisCommand(rc, "keys turn/realm/*/user/*/password");
+				}
 				if(reply) {
 
 					if (reply->type == REDIS_REPLY_ERROR)
@@ -1748,17 +1758,13 @@ static int list_users(int is_st, u08bits *realm)
 
 			for(isz=0;isz<keys.sz;++isz) {
 				char *s = keys.secrets[isz];
-				char *sh = strchr(s,'/');
+				char *sh = strstr(s,"/user/");
 				if(sh) {
-					++sh;
-					sh = strchr(sh,'/');
-					if(sh) {
-						++sh;
-						char* st = strchr(sh,'/');
-						if(st)
-							*st=0;
-						printf("%s\n",sh);
-					}
+					sh += 6;
+					char* st = strchr(sh,'/');
+					if(st)
+						*st=0;
+					printf("%s\n",sh);
 				}
 			}
 
