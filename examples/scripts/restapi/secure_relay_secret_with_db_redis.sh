@@ -19,7 +19,7 @@
 # Absense of --static-auth-secret value means that we will be taking the secret value
 # from the database ('dynamic' mode).
 # 6) --realm=north.gov sets realm value as "north.gov".
-# 7) --redis-userdb="ip=127.0.0.1 dbname=0 password=turn connect_timeout=30" 
+# 7) --redis-userdb="ip=127.0.0.1 dbname=2 password=turn connect_timeout=30" 
 # means that local Redis database 0 will be used, with database  
 # password "turn", and connection timeout 30 seconds.
 # 8) "--cert=example_turn_server_cert.pem" sets the OpenSSL certificate file name. 
@@ -35,4 +35,4 @@ fi
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/:/usr/local/mysql/lib/
 export DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}:/usr/local/lib/:/usr/local/mysql/lib/
 
-PATH="./bin/:../bin/:../../bin/:${PATH}" turnserver -v --syslog -a -L 127.0.0.1 -L ::1 -E 127.0.0.1 -E ::1 --max-bps=3000000 -f -m 3 --min-port=32355 --max-port=65535 --use-auth-secret --realm=north.gov --redis-userdb="ip=127.0.0.1 dbname=0 password=turn connect_timeout=30" --cert=turn_server_cert.pem --pkey=turn_server_pkey.pem --log-file=stdout --redis-statsdb="ip=127.0.0.1 dbname=0 password=turn connect_timeout=30" --cipher-list=ALL:SSLv2 $@
+PATH="./bin/:../bin/:../../bin/:${PATH}" turnserver -v --syslog -a -L 127.0.0.1 -L ::1 -E 127.0.0.1 -E ::1 --max-bps=3000000 -f -m 3 --min-port=32355 --max-port=65535 --use-auth-secret --realm=north.gov --redis-userdb="ip=127.0.0.1 dbname=2 password=turn connect_timeout=30" --cert=turn_server_cert.pem --pkey=turn_server_pkey.pem --log-file=stdout --redis-statsdb="ip=127.0.0.1 dbname=3 password=turn connect_timeout=30" --cipher-list=ALL:SSLv2 $@
