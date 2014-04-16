@@ -19,8 +19,8 @@
 # Absense of --static-auth-secret value means that we will be taking the secret value
 # from the database ('dynamic' mode).
 # 6)--realm=north.gov sets realm value as "north.gov".
-# 7) --psql-userdb="host=localhost dbname=turn user=turn password=turn connect_timeout=30" 
-# means that local PostgreSQL database "turn" will be used, with database user "turn" and 
+# 7) --psql-userdb="host=localhost dbname=coturn user=turn password=turn connect_timeout=30" 
+# means that local PostgreSQL database "coturn" will be used, with database user "turn" and 
 # with database user password "turn", and connection timeout 30 seconds.
 # 8) "--cert=example_turn_server_cert.pem" sets the OpenSSL certificate file name. 
 # 9) "--pkey=example_turn_server_pkey.pem" sets the OpenSSL private key name.
@@ -35,4 +35,4 @@ fi
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/:/usr/local/mysql/lib/
 export DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}:/usr/local/lib/:/usr/local/mysql/lib/
 
-PATH="./bin/:../bin/:../../bin/:${PATH}" turnserver -v --syslog -a -L 127.0.0.1 -L ::1 -E 127.0.0.1 -E ::1 --max-bps=3000000 -f -m 3 --min-port=32355 --max-port=65535 --use-auth-secret --realm=north.gov --psql-userdb="host=localhost dbname=turn user=turn password=turn connect_timeout=30" --cert=turn_server_cert.pem --pkey=turn_server_pkey.pem --log-file=stdout --cipher-list=ALL:SSLv2 $@
+PATH="./bin/:../bin/:../../bin/:${PATH}" turnserver -v --syslog -a -L 127.0.0.1 -L ::1 -E 127.0.0.1 -E ::1 --max-bps=3000000 -f -m 3 --min-port=32355 --max-port=65535 --use-auth-secret --realm=north.gov --psql-userdb="host=localhost dbname=coturn user=turn password=turn connect_timeout=30" --cert=turn_server_cert.pem --pkey=turn_server_pkey.pem --log-file=stdout --cipher-list=ALL:SSLv2 $@

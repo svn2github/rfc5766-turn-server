@@ -666,8 +666,10 @@ The schema description:
 # Table for long-term credentials mechanism authorization:
 #
 CREATE TABLE turnusers_lt (
-    name varchar(512) PRIMARY KEY,
-    hmackey char(128)
+    realm varchar(512),
+    name varchar(512),
+    hmackey char(128),
+    PRIMARY KEY (realm,name)
 );
 
 # Table for short-term credentials mechanism authorisation:
@@ -682,21 +684,46 @@ CREATE TABLE turnusers_st (
 # mechanism:
 #
 CREATE TABLE turn_secret (
-    value varchar(512)
+	realm varchar(512),
+    value varchar(512),
+	primary key (realm,value)
 );
 
 # Table holding "white" allowed peer IP ranges.
 #
 CREATE TABLE allowed_peer_ip (
-	ip_range varchar(256)
+	ip_range varchar(256),
+	primary key (ip_range)
 );
 
 # Table holding "black" denied peer IP ranges.
 #
 CREATE TABLE denied_peer_ip (
-	ip_range varchar(256)
+	ip_range varchar(256),
+	primary key (ip_range)
 );
 
+# Table to match origin to realm.
+# Multiple origins may have the same realm.
+# If no realm is found or the origin is absent
+# then the default realm is used.
+#
+CREATE TABLE turn_origin_to_realm (
+	name varchar(512),
+	realm varchar(512),
+	primary key (name,realm)
+);
+
+# Realm options.
+# Valid options are max-bps,
+# total-quota and user-quota.
+#
+CREATE TABLE turn_realm_option (
+	realm varchar(512),
+	opt varchar(32),
+	value varchar(128),
+	primary key (realm,opt)
+);
 
 The field hmackey contains HEX string representation of the key.
 We do not store the user open passwords for long-term credentials, for security reasons.
@@ -721,10 +748,10 @@ psql postgresql://username:password@/databasename < turndb/schema.sql
 
 Or:
 
-psql postgresql://sql-userusername:password@hostname:port/databasename < turndb/schema.sql
+psql postgresql://username:password@hostname:port/databasename < turndb/schema.sql
 (newer style for 9.x, TCP/IP access)
 
-Here, the string "postgresql://turn:turn@/turn" is the connection URI. 
+Below, the string "postgresql://turn:turn@/turn" is the connection URI. 
 Of course, the administrators can play with the connection string as they want.
 
 When starting the turnserver, the psql-userdb parameter will be, for example:
