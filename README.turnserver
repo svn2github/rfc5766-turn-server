@@ -682,7 +682,7 @@ All users in the database must use the same realm value; if down the road you wi
 to change the realm name, then you will have to re-generate all user keys (that can be done 
 in a batch script). If you are using short-term credentials, then you use open passwords 
 in the database; you will have to make sure that nobody can access the database outside of 
-the TURN server box. 
+the TURN server box. See the file turndb/testsqldbsetup.sql as an example.
 
 4) The same is true for MySQL database. The same schema file is applicable. 
 The same considerations are applicable. 
