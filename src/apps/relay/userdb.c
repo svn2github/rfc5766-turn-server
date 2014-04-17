@@ -2851,6 +2851,127 @@ void reread_realms(void)
 	}
 #endif
 
+#if !defined(TURN_NO_MYSQL)
+	MYSQL * myc = get_mydb_connection();
+	if(myc) {
+		char statement[LONG_STRING_SIZE];
+		{
+			snprintf(statement,sizeof(statement),"select origin,realm from turn_origin_to_realm");
+			int res = mysql_query(myc, statement);
+			if(res == 0) {
+				MYSQL_RES *mres = mysql_store_result(myc);
+				if(mres && mysql_field_count(myc)==2) {
+
+					ur_string_map *o_to_realm_new = ur_string_map_create(free);
+
+					for(;;) {
+						MYSQL_ROW row = mysql_fetch_row(mres);
+						if(!row) {
+							break;
+						} else {
+							if(row[0] && row[1]) {
+								unsigned long *lengths = mysql_fetch_lengths(mres);
+								if(lengths) {
+									size_t sz = lengths[0];
+									char oval[513];
+									ns_bcopy(row[0],oval,sz);
+									oval[sz]=0;
+									char *rval=strdup(row[1]);
+									get_realm(rval);
+									ur_string_map_value_type value = strdup(rval);
+									ur_string_map_put(o_to_realm_new, (const ur_string_map_key_type) oval, value);
+								}
+							}
+						}
+					}
+
+					TURN_MUTEX_LOCK(&o_to_realm_mutex);
+					ur_string_map_free(&o_to_realm);
+					o_to_realm = o_to_realm_new;
+					TURN_MUTEX_UNLOCK(&o_to_realm_mutex);
+				}
+
+				if(mres)
+					mysql_free_result(mres);
+			}
+		}
+		{
+			size_t i = 0;
+			size_t rlsz = 0;
+
+			ur_string_map_lock(realms);
+			rlsz = realms_list.sz;
+			ur_string_map_unlock(realms);
+
+			for (i = 0; i<rlsz; ++i) {
+
+				char *realm = realms_list.secrets[i];
+
+				realm_params_t* rp = get_realm(realm);
+
+				ur_string_map_lock(realms);
+				rp->options.perf_options.max_bps = turn_params.max_bps;
+				ur_string_map_unlock(realms);
+
+				ur_string_map_lock(realms);
+				rp->options.perf_options.total_quota = turn_params.total_quota;
+				ur_string_map_unlock(realms);
+
+				ur_string_map_lock(realms);
+				rp->options.perf_options.user_quota = turn_params.user_quota;
+				ur_string_map_unlock(realms);
+
+			}
+		}
+
+		snprintf(statement,sizeof(statement),"select realm,opt,value from turn_realm_option");
+		int res = mysql_query(myc, statement);
+		if(res == 0) {
+			MYSQL_RES *mres = mysql_store_result(myc);
+			if(mres && mysql_field_count(myc)==3) {
+
+				for(;;) {
+					MYSQL_ROW row = mysql_fetch_row(mres);
+					if(!row) {
+						break;
+					} else {
+						if(row[0] && row[1] && row[2]) {
+							unsigned long *lengths = mysql_fetch_lengths(mres);
+							if(lengths) {
+								char rval[513];
+								size_t sz = lengths[0];
+								ns_bcopy(row[0],rval,sz);
+								rval[sz]=0;
+								char oval[513];
+								sz = lengths[1];
+								ns_bcopy(row[1],oval,sz);
+								oval[sz]=0;
+								char vval[513];
+								sz = lengths[2];
+								ns_bcopy(row[2],vval,sz);
+								vval[sz]=0;
+								realm_params_t* rp = get_realm(rval);
+								if(!strcmp(oval,"max-bps"))
+									rp->options.perf_options.max_bps = (vint)atoi(vval);
+								else if(!strcmp(oval,"total-quota"))
+									rp->options.perf_options.total_quota = (vint)atoi(vval);
+								else if(!strcmp(oval,"user-quota"))
+									rp->options.perf_options.user_quota = (vint)atoi(vval);
+								else {
+									TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unknown realm option: %s\n", oval);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if(mres)
+				mysql_free_result(mres);
+		}
+	}
+#endif
+
 #if !defined(TURN_NO_HIREDIS)
 	if (is_redis_userdb()) {
 		redisContext *rc = get_redis_connection();
