@@ -80,7 +80,7 @@ typedef struct _stun_buffer_list {
 	size_t tsz;
 } stun_buffer_list;
 
-typedef unsigned long band_limit_t;
+typedef vint band_limit_t;
 
 /*
  * New connection callback

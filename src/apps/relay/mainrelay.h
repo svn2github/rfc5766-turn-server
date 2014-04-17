@@ -306,6 +306,8 @@ typedef struct _turn_params_ {
   vint mobility;
   turn_credential_type ct;
   int use_auth_secret_with_timestamp;
+  vint total_quota;
+  vint user_quota;
 
 /////// Users DB ///////////
 

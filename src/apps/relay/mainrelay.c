@@ -98,7 +98,7 @@ NEV_UNKNOWN,
 /////////////// stop server ////////////////
 0,
 /////////////// MISC PARAMS ////////////////
-0,0,0,0,0,SHATYPE_SHA1,':',0,0,TURN_CREDENTIALS_NONE,0,
+0,0,0,0,0,SHATYPE_SHA1,':',0,0,TURN_CREDENTIALS_NONE,0,0,0,
 ///////////// Users DB //////////////
 { TURN_USERDB_TYPE_FILE, {"\0",NULL}, {0,NULL,NULL, {NULL,0}} }
 
@@ -1062,13 +1062,15 @@ static void set_option(int c, char *value)
 		set_default_realm_name(value);
 		break;
 	case 'q':
+		turn_params.total_quota = (vint)atoi(value);
 		get_realm(NULL)->options.perf_options.user_quota = atoi(value);
 		break;
 	case 'Q':
+		turn_params.user_quota = (vint)atoi(value);
 		get_realm(NULL)->options.perf_options.total_quota = atoi(value);
 		break;
 	case 's':
-		turn_params.max_bps = (band_limit_t)atol(value);
+		turn_params.max_bps = (band_limit_t)atoi(value);
 		get_realm(NULL)->options.perf_options.max_bps = atoi(value);
 		TURN_LOG_FUNC(TURN_LOG_LEVEL_INFO, "%lu bytes per second allowed per session\n",(unsigned long)turn_params.max_bps);
 		break;

@@ -2716,9 +2716,12 @@ int add_ip_list_range(char* range, ip_range_list_t * list)
 /////////// REALM //////////////
 
 #if !defined(TURN_NO_HIREDIS)
-static void set_redis_realm_opt(char *realm, const char* key, vint *value)
+static int set_redis_realm_opt(char *realm, const char* key, vint *value)
 {
+	int found = 0;
+
 	redisContext *rc = get_redis_connection();
+
 	if(rc) {
 		redisReply *rget = NULL;
 
@@ -2737,16 +2740,116 @@ static void set_redis_realm_opt(char *realm, const char* key, vint *value)
 				ur_string_map_lock(realms);
 				*value = atoi(rget->str);
 				ur_string_map_unlock(realms);
+				found = 1;
 			}
 			turnFreeRedisReply(rget);
 		}
 	}
+
+	return found;
 }
 #endif
 
 void reread_realms(void)
 {
-	//TODO
+#if !defined(TURN_NO_PQ)
+	PGconn * pqc = get_pqdb_connection();
+	if(pqc) {
+		char statement[LONG_STRING_SIZE];
+
+		{
+			snprintf(statement,sizeof(statement),"select origin,realm from turn_origin_to_realm");
+			PGresult *res = PQexec(pqc, statement);
+
+			if(res && (PQresultStatus(res) == PGRES_TUPLES_OK)) {
+
+				ur_string_map *o_to_realm_new = ur_string_map_create(free);
+
+				int i = 0;
+				for(i=0;i<PQntuples(res);i++) {
+					char *oval = PQgetvalue(res,i,0);
+					if(oval) {
+						char *rval = PQgetvalue(res,i,1);
+						if(rval) {
+							get_realm(rval);
+							ur_string_map_value_type value = strdup(rval);
+							ur_string_map_put(o_to_realm_new, (const ur_string_map_key_type) oval, value);
+						}
+					}
+				}
+
+				TURN_MUTEX_LOCK(&o_to_realm_mutex);
+				ur_string_map_free(&o_to_realm);
+				o_to_realm = o_to_realm_new;
+				TURN_MUTEX_UNLOCK(&o_to_realm_mutex);
+			}
+
+			if(res) {
+				PQclear(res);
+			}
+		}
+
+		{
+			{
+				size_t i = 0;
+				size_t rlsz = 0;
+
+				ur_string_map_lock(realms);
+				rlsz = realms_list.sz;
+				ur_string_map_unlock(realms);
+
+				for (i = 0; i<rlsz; ++i) {
+
+					char *realm = realms_list.secrets[i];
+
+					realm_params_t* rp = get_realm(realm);
+
+					ur_string_map_lock(realms);
+					rp->options.perf_options.max_bps = turn_params.max_bps;
+					ur_string_map_unlock(realms);
+
+					ur_string_map_lock(realms);
+					rp->options.perf_options.total_quota = turn_params.total_quota;
+					ur_string_map_unlock(realms);
+
+					ur_string_map_lock(realms);
+					rp->options.perf_options.user_quota = turn_params.user_quota;
+					ur_string_map_unlock(realms);
+
+				}
+			}
+
+			snprintf(statement,sizeof(statement),"select realm,opt,value from turn_realm_option");
+			PGresult *res = PQexec(pqc, statement);
+
+			if(res && (PQresultStatus(res) == PGRES_TUPLES_OK)) {
+
+				int i = 0;
+				for(i=0;i<PQntuples(res);i++) {
+					char *rval = PQgetvalue(res,i,0);
+					char *oval = PQgetvalue(res,i,1);
+					char *vval = PQgetvalue(res,i,2);
+					if(rval && oval && vval) {
+						realm_params_t* rp = get_realm(rval);
+						if(!strcmp(oval,"max-bps"))
+							rp->options.perf_options.max_bps = (vint)atoi(vval);
+						else if(!strcmp(oval,"total-quota"))
+							rp->options.perf_options.total_quota = (vint)atoi(vval);
+						else if(!strcmp(oval,"user-quota"))
+							rp->options.perf_options.user_quota = (vint)atoi(vval);
+						else {
+							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unknown realm option: %s\n", oval);
+						}
+					}
+				}
+			}
+
+			if(res) {
+				PQclear(res);
+			}
+		}
+	}
+#endif
 
 #if !defined(TURN_NO_HIREDIS)
 	if (is_redis_userdb()) {
@@ -2820,12 +2923,21 @@ void reread_realms(void)
 				for (i = 0; i<rlsz; ++i) {
 					char *realm = realms_list.secrets[i];
 					realm_params_t* rp = get_realm(realm);
-					set_redis_realm_opt(realm,"max_bps",&(rp->options.perf_options.max_bps));
-					set_redis_realm_opt(realm,"max-bps",&(rp->options.perf_options.max_bps));
-					set_redis_realm_opt(realm,"total_quota",&(rp->options.perf_options.total_quota));
-					set_redis_realm_opt(realm,"total-quota",&(rp->options.perf_options.total_quota));
-					set_redis_realm_opt(realm,"user_quota",&(rp->options.perf_options.user_quota));
-					set_redis_realm_opt(realm,"user-quota",&(rp->options.perf_options.user_quota));
+					if(!set_redis_realm_opt(realm,"max-bps",&(rp->options.perf_options.max_bps))) {
+						ur_string_map_lock(realms);
+						rp->options.perf_options.max_bps = turn_params.max_bps;
+						ur_string_map_unlock(realms);
+					}
+					if(!set_redis_realm_opt(realm,"total-quota",&(rp->options.perf_options.total_quota))) {
+						ur_string_map_lock(realms);
+						rp->options.perf_options.total_quota = turn_params.total_quota;
+						ur_string_map_unlock(realms);
+					}
+					if(!set_redis_realm_opt(realm,"user-quota",&(rp->options.perf_options.user_quota))) {
+						ur_string_map_lock(realms);
+						rp->options.perf_options.user_quota = turn_params.user_quota;
+						ur_string_map_unlock(realms);
+					}
 				}
 			}
 		}
