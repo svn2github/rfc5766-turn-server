@@ -915,7 +915,7 @@ static int get_auth_secrets(secrets_list_t *sl, u08bits *realm)
 	PGconn * pqc = get_pqdb_connection();
 	if(pqc) {
 		char statement[LONG_STRING_SIZE];
-		STRCPY(statement,"select value from turn_secret");
+		snprintf(statement,sizeof(statement)-1,"select value from turn_secret where realm='%s'",realm);
 		PGresult *res = PQexec(pqc, statement);
 
 		if(!res || (PQresultStatus(res) != PGRES_TUPLES_OK)) {
@@ -941,7 +941,7 @@ static int get_auth_secrets(secrets_list_t *sl, u08bits *realm)
 	MYSQL * myc = get_mydb_connection();
 	if(myc) {
 		char statement[LONG_STRING_SIZE];
-		STRCPY(statement,"select value from turn_secret");
+		snprintf(statement,sizeof(statement)-1,"select value from turn_secret where realm='%s'",realm);
 		int res = mysql_query(myc, statement);
 		if(res) {
 			TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error retrieving MySQL DB information: %s\n",mysql_error(myc));
@@ -1218,7 +1218,7 @@ int get_user_key(u08bits *usname, u08bits *realm, hmackey_t key, ioa_network_buf
 		PGconn * pqc = get_pqdb_connection();
 		if(pqc) {
 			char statement[LONG_STRING_SIZE];
-			snprintf(statement,sizeof(statement),"select hmackey from turnusers_lt where name='%s'",usname);
+			snprintf(statement,sizeof(statement),"select hmackey from turnusers_lt where name='%s' and realm='%s'",usname,realm);
 			PGresult *res = PQexec(pqc, statement);
 
 			if(!res || (PQresultStatus(res) != PGRES_TUPLES_OK) || (PQntuples(res)!=1)) {
@@ -1252,7 +1252,7 @@ int get_user_key(u08bits *usname, u08bits *realm, hmackey_t key, ioa_network_buf
 		MYSQL * myc = get_mydb_connection();
 		if(myc) {
 			char statement[LONG_STRING_SIZE];
-			snprintf(statement,sizeof(statement),"select hmackey from turnusers_lt where name='%s'",usname);
+			snprintf(statement,sizeof(statement),"select hmackey from turnusers_lt where name='%s' and realm='%s'",usname,realm);
 			int res = mysql_query(myc, statement);
 			if(res) {
 				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error retrieving MySQL DB information: %s\n",mysql_error(myc));
@@ -1652,6 +1652,8 @@ static int list_users(int is_st, u08bits *realm)
 		if(pqc) {
 			if(is_st) {
 			  snprintf(statement,sizeof(statement),"select name from turnusers_st order by name");
+			} else if(realm && realm[0]) {
+			  snprintf(statement,sizeof(statement),"select name from turnusers_lt where realm='%s' order by name",realm);
 			} else {
 			  snprintf(statement,sizeof(statement),"select name from turnusers_lt order by name");
 			}
@@ -1679,6 +1681,8 @@ static int list_users(int is_st, u08bits *realm)
 		if(myc) {
 			if(is_st) {
 			  snprintf(statement,sizeof(statement),"select name from turnusers_st order by name");
+			} else if(realm && realm[0]) {
+			  snprintf(statement,sizeof(statement),"select name from turnusers_lt where realm='%s' order by name",realm);
 			} else {
 			  snprintf(statement,sizeof(statement),"select name from turnusers_lt order by name");
 			}
@@ -1810,7 +1814,7 @@ static int list_users(int is_st, u08bits *realm)
 static int show_secret(u08bits *realm)
 {
 	char statement[LONG_STRING_SIZE];
-	snprintf(statement,sizeof(statement),"select value from turn_secret");
+	snprintf(statement,sizeof(statement)-1,"select value from turn_secret where realm='%s'",realm);
 
 	donot_print_connection_success=1;
 
@@ -1936,9 +1940,9 @@ static int del_secret(u08bits *secret, u08bits *realm) {
 		PGconn *pqc = get_pqdb_connection();
 		if (pqc) {
 			if(!secret || (secret[0]==0))
-			  snprintf(statement,sizeof(statement),"delete from turn_secret");
+			  snprintf(statement,sizeof(statement),"delete from turn_secret where realm='%s'",realm);
 			else
-			  snprintf(statement,sizeof(statement),"delete from turn_secret where value='%s'",secret);
+			  snprintf(statement,sizeof(statement),"delete from turn_secret where value='%s' and realm='%s'",secret,realm);
 
 			PGresult *res = PQexec(pqc, statement);
 			if (res) {
@@ -1952,9 +1956,9 @@ static int del_secret(u08bits *secret, u08bits *realm) {
 		MYSQL * myc = get_mydb_connection();
 		if (myc) {
 			if(!secret || (secret[0]==0))
-			  snprintf(statement,sizeof(statement),"delete from turn_secret");
+			  snprintf(statement,sizeof(statement),"delete from turn_secret where realm='%s'",realm);
 			else
-			  snprintf(statement,sizeof(statement),"delete from turn_secret where value='%s'",secret);
+			  snprintf(statement,sizeof(statement),"delete from turn_secret where value='%s' and realm='%s'",secret,realm);
 			mysql_query(myc, statement);
 		}
 #endif
@@ -2035,7 +2039,7 @@ static int set_secret(u08bits *secret, u08bits *realm) {
 		char statement[LONG_STRING_SIZE];
 		PGconn *pqc = get_pqdb_connection();
 		if (pqc) {
-		  snprintf(statement,sizeof(statement),"insert into turn_secret values('%s')",secret);
+		  snprintf(statement,sizeof(statement),"insert into turn_secret (realm,value) values('%s','%s')",realm,secret);
 		  PGresult *res = PQexec(pqc, statement);
 		  if (!res || (PQresultStatus(res) != PGRES_COMMAND_OK)) {
 		    TURN_LOG_FUNC(
@@ -2053,7 +2057,7 @@ static int set_secret(u08bits *secret, u08bits *realm) {
 		char statement[LONG_STRING_SIZE];
 		MYSQL * myc = get_mydb_connection();
 		if (myc) {
-		  snprintf(statement,sizeof(statement),"insert into turn_secret values('%s')",secret);
+		  snprintf(statement,sizeof(statement),"insert into turn_secret (realm,value) values('%s','%s')",realm,secret);
 		  int res = mysql_query(myc, statement);
 		  if (res) {
 		    TURN_LOG_FUNC(
@@ -2144,6 +2148,8 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 			if(ct == TA_DELETE_USER) {
 				if(is_st) {
 				  snprintf(statement,sizeof(statement),"delete from turnusers_st where name='%s'",user);
+				} else if(realm && realm[0]) {
+				  snprintf(statement,sizeof(statement),"delete from turnusers_lt where name='%s' and realm='%s'",user,realm);
 				} else {
 				  snprintf(statement,sizeof(statement),"delete from turnusers_lt where name='%s'",user);
 				}
@@ -2157,7 +2163,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 				if(is_st) {
 				  snprintf(statement,sizeof(statement),"insert into turnusers_st values('%s','%s')",user,passwd);
 				} else {
-				  snprintf(statement,sizeof(statement),"insert into turnusers_lt values('%s','%s')",user,skey);
+				  snprintf(statement,sizeof(statement),"insert into turnusers_lt (realm,name,hmackey) values('%s','%s','%s')",realm,user,skey);
 				}
 				PGresult *res = PQexec(pqc, statement);
 				if(!res || (PQresultStatus(res) != PGRES_COMMAND_OK)) {
@@ -2167,7 +2173,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 					if(is_st) {
 					  snprintf(statement,sizeof(statement),"update turnusers_st set password='%s' where name='%s'",passwd,user);
 					} else {
-					  snprintf(statement,sizeof(statement),"update turnusers_lt set hmackey='%s' where name='%s'",skey,user);
+					  snprintf(statement,sizeof(statement),"update turnusers_lt set hmackey='%s' where name='%s' and realm='%s'",skey,user,realm);
 					}
 					res = PQexec(pqc, statement);
 					if(!res || (PQresultStatus(res) != PGRES_COMMAND_OK)) {
@@ -2189,7 +2195,7 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 				if(is_st) {
 				  snprintf(statement,sizeof(statement),"delete from turnusers_st where name='%s'",user);
 				} else {
-				  snprintf(statement,sizeof(statement),"delete from turnusers_lt where name='%s'",user);
+				  snprintf(statement,sizeof(statement),"delete from turnusers_lt where name='%s' and realm='%s'",user,realm);
 				}
 				int res = mysql_query(myc, statement);
 				if(res) {
@@ -2201,14 +2207,14 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 				if(is_st) {
 				  snprintf(statement,sizeof(statement),"insert into turnusers_st values('%s','%s')",user,passwd);
 				} else {
-				  snprintf(statement,sizeof(statement),"insert into turnusers_lt values('%s','%s')",user,skey);
+				  snprintf(statement,sizeof(statement),"insert into turnusers_lt (realm,name,hmackey) values('%s','%s','%s')",realm,user,skey);
 				}
 				int res = mysql_query(myc, statement);
 				if(res) {
 					if(is_st) {
 					  snprintf(statement,sizeof(statement),"update turnusers_st set password='%s' where name='%s'",passwd,user);
 					} else {
-					  snprintf(statement,sizeof(statement),"update turnusers_lt set hmackey='%s' where name='%s'",skey,user);
+					  snprintf(statement,sizeof(statement),"update turnusers_lt set hmackey='%s' where name='%s' and realm='%s'",skey,user,realm);
 					}
 					res = mysql_query(myc, statement);
 					if(res) {
