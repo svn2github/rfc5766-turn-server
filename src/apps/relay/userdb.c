@@ -234,7 +234,7 @@ static void must_set_admin_realm(void *realm0)
 {
 	char* realm = (char*)realm0;
 	if(!realm || !realm[0]) {
-		fprintf(stderr, "The operation cannot be completed: rhe realm must be set.\n");
+		fprintf(stderr, "The operation cannot be completed: the realm must be set.\n");
 		exit(-1);
 	}
 }
@@ -243,7 +243,7 @@ static void must_set_admin_user(void *user0)
 {
 	char* user = (char*)user0;
 	if(!user || !user[0]) {
-		fprintf(stderr, "The operation cannot be completed: rhe user must be set.\n");
+		fprintf(stderr, "The operation cannot be completed: the user must be set.\n");
 		exit(-1);
 	}
 }
@@ -252,7 +252,7 @@ static void must_set_admin_pwd(void *pwd0)
 {
 	char* pwd = (char*)pwd0;
 	if(!pwd || !pwd[0]) {
-		fprintf(stderr, "The operation cannot be completed: rhe password must be set.\n");
+		fprintf(stderr, "The operation cannot be completed: the password must be set.\n");
 		exit(-1);
 	}
 }
@@ -1818,6 +1818,8 @@ static int show_secret(u08bits *realm)
 
 	donot_print_connection_success=1;
 
+	must_set_admin_realm(realm);
+
 	if(is_pqsql_userdb()){
 #if !defined(TURN_NO_PQ)
 		PGconn *pqc = get_pqdb_connection();
@@ -2111,15 +2113,15 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		return del_secret(secret, realm);
 	}
 
+	must_set_admin_user(user);
+
 	if(ct != TA_DELETE_USER) {
 
 		must_set_admin_pwd(pwd);
-		must_set_admin_user(user);
 
 		if(is_st) {
 			strncpy((char*)passwd,(char*)pwd,sizeof(st_password_t));
 		} else {
-			must_set_admin_realm(realm);
 			stun_produce_integrity_key_str(user, realm, pwd, key, turn_params.shatype);
 			size_t i = 0;
 			size_t sz = get_hmackey_size(turn_params.shatype);
@@ -2141,17 +2143,21 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		}
 
 	} else if(is_pqsql_userdb()){
+
 #if !defined(TURN_NO_PQ)
+
+		if(!is_st) {
+			must_set_admin_realm(realm);
+		}
+
 		char statement[LONG_STRING_SIZE];
 		PGconn *pqc = get_pqdb_connection();
 		if(pqc) {
 			if(ct == TA_DELETE_USER) {
 				if(is_st) {
 				  snprintf(statement,sizeof(statement),"delete from turnusers_st where name='%s'",user);
-				} else if(realm && realm[0]) {
-				  snprintf(statement,sizeof(statement),"delete from turnusers_lt where name='%s' and realm='%s'",user,realm);
 				} else {
-				  snprintf(statement,sizeof(statement),"delete from turnusers_lt where name='%s'",user);
+				  snprintf(statement,sizeof(statement),"delete from turnusers_lt where name='%s' and realm='%s'",user,realm);
 				}
 				PGresult *res = PQexec(pqc, statement);
 				if(res) {
@@ -2187,7 +2193,13 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		}
 #endif
 	} else if(is_mysql_userdb()){
+
 #if !defined(TURN_NO_MYSQL)
+
+		if(!is_st) {
+			must_set_admin_realm(realm);
+		}
+
 		char statement[LONG_STRING_SIZE];
 		MYSQL * myc = get_mydb_connection();
 		if(myc) {
@@ -2225,7 +2237,13 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 		}
 #endif
 	} else if(is_redis_userdb()) {
+
 #if !defined(TURN_NO_HIREDIS)
+
+		if(!is_st) {
+			must_set_admin_realm(realm);
+		}
+
 		redisContext *rc = get_redis_connection();
 		if(rc) {
 			char statement[LONG_STRING_SIZE];
