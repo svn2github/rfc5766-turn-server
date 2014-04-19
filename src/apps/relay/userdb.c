@@ -257,6 +257,15 @@ static void must_set_admin_pwd(void *pwd0)
 	}
 }
 
+static void must_set_admin_origin(void *origin0)
+{
+	char* origin = (char*)origin0;
+	if(!origin || !origin[0]) {
+		fprintf(stderr, "The operation cannot be completed: the origin must be set.\n");
+		exit(-1);
+	}
+}
+
 /////////// SHARED SECRETS /////////////////
 
 void init_secrets_list(secrets_list_t *sl)
@@ -2088,7 +2097,118 @@ static int set_secret(u08bits *secret, u08bits *realm) {
 	return 0;
 }
 
-int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURNADMIN_COMMAND_TYPE ct, int is_st)
+static int add_origin(u08bits *origin0, u08bits *realm)
+{
+	UNUSED_ARG(realm);
+	UNUSED_ARG(origin0);
+	char origin[STUN_MAX_ORIGIN_SIZE+1];
+	get_canonic_origin((char*)origin0, origin, sizeof(origin)-1);
+#if !defined(TURN_NO_PQ)
+	if(is_pqsql_userdb()) {
+		char statement[LONG_STRING_SIZE];
+		PGconn *pqc = get_pqdb_connection();
+		if(pqc) {
+			snprintf(statement,sizeof(statement),"insert into turn_origin_to_realm (origin,realm) values('%s','%s')",origin,realm);
+			PGresult *res = PQexec(pqc, statement);
+			if(!res || (PQresultStatus(res) != PGRES_COMMAND_OK)) {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error inserting origin information: %s\n",PQerrorMessage(pqc));
+			}
+			if(res) {
+				PQclear(res);
+			}
+		}
+	}
+#endif
+
+#if !defined(TURN_NO_MYSQL)
+	if (is_mysql_userdb()) {
+		char statement[LONG_STRING_SIZE];
+		MYSQL * myc = get_mydb_connection();
+		if (myc) {
+			snprintf(statement,sizeof(statement),"insert into turn_origin_to_realm (origin,realm) values('%s','%s')",origin,realm);
+			int res = mysql_query(myc, statement);
+			if (res) {
+				TURN_LOG_FUNC(
+				  TURN_LOG_LEVEL_ERROR,
+				  "Error inserting origin information: %s\n",
+				  mysql_error(myc));
+			}
+		}
+	}
+#endif
+
+#if !defined(TURN_NO_HIREDIS)
+	if(is_redis_userdb()) {
+		redisContext *rc = get_redis_connection();
+		if(rc) {
+			char s[LONG_STRING_SIZE];
+
+			snprintf(s,sizeof(s),"set turn/origin/%s %s", (char*)origin, (char*)realm);
+
+			turnFreeRedisReply(redisCommand(rc, s));
+			turnFreeRedisReply(redisCommand(rc, "save"));
+		}
+	}
+#endif
+	return 0;
+}
+
+static int del_origin(u08bits *origin0)
+{
+	UNUSED_ARG(origin0);
+	char origin[STUN_MAX_ORIGIN_SIZE+1];
+	get_canonic_origin((char*)origin0, origin, sizeof(origin)-1);
+#if !defined(TURN_NO_PQ)
+	if(is_pqsql_userdb()) {
+		char statement[LONG_STRING_SIZE];
+		PGconn *pqc = get_pqdb_connection();
+		if(pqc) {
+			snprintf(statement,sizeof(statement),"delete from turn_origin_to_realm where origin='%s'",origin);
+			PGresult *res = PQexec(pqc, statement);
+			if(!res || (PQresultStatus(res) != PGRES_COMMAND_OK)) {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error deleting origin information: %s\n",PQerrorMessage(pqc));
+			}
+			if(res) {
+				PQclear(res);
+			}
+		}
+	}
+#endif
+
+#if !defined(TURN_NO_MYSQL)
+	if (is_mysql_userdb()) {
+		char statement[LONG_STRING_SIZE];
+		MYSQL * myc = get_mydb_connection();
+		if (myc) {
+			snprintf(statement,sizeof(statement),"delete from turn_origin_to_realm where origin='%s'",origin);
+			int res = mysql_query(myc, statement);
+			if (res) {
+				TURN_LOG_FUNC(
+				  TURN_LOG_LEVEL_ERROR,
+				  "Error deleting origin information: %s\n",
+				  mysql_error(myc));
+			}
+		}
+	}
+#endif
+
+#if !defined(TURN_NO_HIREDIS)
+	if(is_redis_userdb()) {
+		redisContext *rc = get_redis_connection();
+		if(rc) {
+			char s[LONG_STRING_SIZE];
+
+			snprintf(s,sizeof(s),"del turn/origin/%s", (char*)origin);
+
+			turnFreeRedisReply(redisCommand(rc, s));
+			turnFreeRedisReply(redisCommand(rc, "save"));
+		}
+	}
+#endif
+	return 0;
+}
+
+int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, u08bits *origin, TURNADMIN_COMMAND_TYPE ct, int is_st)
 {
 	hmackey_t key;
 	char skey[sizeof(hmackey_t)*2+1];
@@ -2111,6 +2231,17 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, TURN
 
 	if(ct == TA_DEL_SECRET) {
 		return del_secret(secret, realm);
+	}
+
+	if(ct == TA_ADD_ORIGIN) {
+		must_set_admin_origin(origin);
+		must_set_admin_realm(realm);
+		return add_origin(origin,realm);
+	}
+
+	if(ct == TA_DEL_ORIGIN) {
+		must_set_admin_origin(origin);
+		return del_origin(origin);
 	}
 
 	must_set_admin_user(user);

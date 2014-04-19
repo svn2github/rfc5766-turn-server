@@ -562,6 +562,8 @@ static char AdminUsage[] = "Usage: turnadmin [command] [options]\n"
 	"	-S, --show-secret		Show stored shared secrets for TURN REST API\n"
 	"	-X, --delete-secret=<value>	Delete a shared secret\n"
 	"	    --delete-all-secrets	Delete all shared secrets for REST API\n"
+	"	-O, --add-origin		Add origin-to-realm relation.\n"
+	"	-R, --del-origin		Delete origin-to-realm relation.\n"
 #endif
 	"Options:\n"
 	"	-b, --userdb			User database file, if flat DB file is used.\n"
@@ -577,13 +579,16 @@ static char AdminUsage[] = "Usage: turnadmin [command] [options]\n"
 	"	-u, --user			Username\n"
 	"	-r, --realm			Realm for long-term mechanism only\n"
 	"	-p, --password			Password\n"
+#if !defined(TURN_NO_PQ) || !defined(TURN_NO_MYSQL) || !defined(TURN_NO_HIREDIS)
+	"	-o, --origin			Origin\n"
+#endif
 	"	-H, --sha256			Use SHA256 digest function to be used for the message integrity.\n"
 	"					By default, the server SHA1 (as per TURN standard specs).\n"
 	"	-h, --help			Help\n";
 
 #define OPTIONS "c:d:p:L:E:X:i:m:l:r:u:b:e:M:N:O:q:Q:s:C:vVofhznaAS"
 
-#define ADMIN_OPTIONS "HlLkaADSdb:e:M:N:u:r:p:s:X:h"
+#define ADMIN_OPTIONS "ORHlLkaADSdb:e:M:N:u:r:p:s:X:o:h"
 
 enum EXTRA_OPTS {
 	NO_UDP_OPT=256,
@@ -766,6 +771,11 @@ static struct option admin_long_options[] = {
 				{ "realm", required_argument, NULL, 'r' },
 				{ "password", required_argument, NULL, 'p' },
 				{ "sha256", no_argument, NULL, 'H' },
+#if !defined(TURN_NO_PQ) || !defined(TURN_NO_MYSQL) || !defined(TURN_NO_HIREDIS)
+				{ "add-origin", no_argument, NULL, 'O' },
+				{ "del-origin", no_argument, NULL, 'R' },
+				{ "origin", required_argument, NULL, 'o' },
+#endif
 				{ "help", no_argument, NULL, 'h' },
 				{ NULL, no_argument, NULL, 0 }
 };
@@ -1304,9 +1314,19 @@ static int adminmain(int argc, char **argv)
 	u08bits realm[STUN_MAX_REALM_SIZE+1]="";
 	u08bits pwd[STUN_MAX_PWD_SIZE+1]="";
 	u08bits secret[AUTH_SECRET_SIZE+1]="";
+	u08bits origin[STUN_MAX_ORIGIN_SIZE+1]="";
 
 	while (((c = getopt_long(argc, argv, ADMIN_OPTIONS, admin_long_options, NULL)) != -1)) {
 		switch (c){
+		case 'O':
+			ct = TA_ADD_ORIGIN;
+			break;
+		case 'R':
+			ct = TA_DEL_ORIGIN;
+			break;
+		case 'o':
+			STRCPY(origin,optarg);
+			break;
 		case 'k':
 			ct = TA_PRINT_KEY;
 			break;
@@ -1429,7 +1449,7 @@ static int adminmain(int argc, char **argv)
 		exit(-1);
 	}
 
-	return adminuser(user, realm, pwd, secret, ct, is_st);
+	return adminuser(user, realm, pwd, secret, origin, ct, is_st);
 }
 
 static void print_features(unsigned long mfn)

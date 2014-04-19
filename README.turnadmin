@@ -66,6 +66,10 @@ Commands:
 -S, --show-secret	Show stored shared secrets for TURN REST API
 
 -X, --delete-secret=<value> Delete a shared secret.
+
+-O, --add-origin		Add origin-to-realm relation.
+
+-R, --del-origin		Delete origin-to-realm relation.
  
 --delete-all_secrets	Delete all shared secrets for REST API.
 
@@ -85,6 +89,7 @@ Options with required values:
 -u, --user		User name.
 -r, --realm		Realm, for long-term credentials mechanism only.
 -p, --password		Password.
+-o, --origin		Origin
 -H, --sha256	Use SHA256 as the keys hash function (a non-standard feature). 
 				By default, MD5 is used for the key storage encryption 
 				(as required by the current STUN/TURNstandards). 
@@ -117,6 +122,14 @@ $ turnadmin -s <secret> --mysql-userdb="<db-connection-string>" -r <realm>
 Show secret stored in PostgreSQL database:
 
 $ turnadmin -S --psql-userdb="<db-connection-string>" -r <realm>
+
+Set origin-to-realm relation in MySQL database:
+
+$ turnadmin --mysql-userdb="<db-connection-string>" -r <realm> -o <origin>
+
+Delete origin-to-realm relation from Redis DB:
+
+$ turnadmin --redis-userdb="<db-connection-string>" -o <origin>
   
 Help:  
 
