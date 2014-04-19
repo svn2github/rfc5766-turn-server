@@ -564,6 +564,7 @@ static char AdminUsage[] = "Usage: turnadmin [command] [options]\n"
 	"	    --delete-all-secrets	Delete all shared secrets for REST API\n"
 	"	-O, --add-origin		Add origin-to-realm relation.\n"
 	"	-R, --del-origin		Delete origin-to-realm relation.\n"
+	"	-I, --list-origins		List origin-to-realm relations.\n"
 #endif
 	"Options:\n"
 	"	-b, --userdb			User database file, if flat DB file is used.\n"
@@ -588,7 +589,7 @@ static char AdminUsage[] = "Usage: turnadmin [command] [options]\n"
 
 #define OPTIONS "c:d:p:L:E:X:i:m:l:r:u:b:e:M:N:O:q:Q:s:C:vVofhznaAS"
 
-#define ADMIN_OPTIONS "ORHlLkaADSdb:e:M:N:u:r:p:s:X:o:h"
+#define ADMIN_OPTIONS "ORIHlLkaADSdb:e:M:N:u:r:p:s:X:o:h"
 
 enum EXTRA_OPTS {
 	NO_UDP_OPT=256,
@@ -774,6 +775,7 @@ static struct option admin_long_options[] = {
 #if !defined(TURN_NO_PQ) || !defined(TURN_NO_MYSQL) || !defined(TURN_NO_HIREDIS)
 				{ "add-origin", no_argument, NULL, 'O' },
 				{ "del-origin", no_argument, NULL, 'R' },
+				{ "list-origins", required_argument, NULL, 'I' },
 				{ "origin", required_argument, NULL, 'o' },
 #endif
 				{ "help", no_argument, NULL, 'h' },
@@ -1323,6 +1325,9 @@ static int adminmain(int argc, char **argv)
 			break;
 		case 'R':
 			ct = TA_DEL_ORIGIN;
+			break;
+		case 'I':
+			ct = TA_LIST_ORIGINS;
 			break;
 		case 'o':
 			STRCPY(origin,optarg);

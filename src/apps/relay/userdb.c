@@ -1735,7 +1735,6 @@ static int list_users(int is_st, u08bits *realm)
 
 			if(!is_st) {
 
-				redisReply *reply = NULL;
 				if(realm && realm[0]) {
 					reply = (redisReply*)redisCommand(rc, "keys turn/realm/%s/user/*/key", (char*)realm);
 				} else {
@@ -2208,6 +2207,136 @@ static int del_origin(u08bits *origin0)
 	return 0;
 }
 
+static int list_origins(u08bits *realm)
+{
+	donot_print_connection_success = 1;
+
+	if(is_pqsql_userdb()){
+#if !defined(TURN_NO_PQ)
+		char statement[LONG_STRING_SIZE];
+		PGconn *pqc = get_pqdb_connection();
+		if(pqc) {
+			if(realm && realm[0]) {
+			  snprintf(statement,sizeof(statement),"select origin,realm from turn_origin_to_realm where realm='%s' order by origin",realm);
+			} else {
+			  snprintf(statement,sizeof(statement),"select origin,realm from turn_origin_to_realm order by origin,realm");
+			}
+			PGresult *res = PQexec(pqc, statement);
+			if(!res || (PQresultStatus(res) != PGRES_TUPLES_OK)) {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error retrieving PostgreSQL DB information: %s\n",PQerrorMessage(pqc));
+			} else {
+				int i = 0;
+				for(i=0;i<PQntuples(res);i++) {
+					char *oval = PQgetvalue(res,i,0);
+					if(oval) {
+						char *rval = PQgetvalue(res,i,1);
+						if(rval) {
+							printf("%s ==>> %s\n",oval,rval);
+						}
+					}
+				}
+			}
+			if(res) {
+				PQclear(res);
+			}
+		}
+#endif
+	} else if(is_mysql_userdb()){
+#if !defined(TURN_NO_MYSQL)
+		char statement[LONG_STRING_SIZE];
+		MYSQL * myc = get_mydb_connection();
+		if(myc) {
+			if(realm && realm[0]) {
+				snprintf(statement,sizeof(statement),"select origin,realm from turn_origin_to_realm where realm='%s' order by origin",realm);
+			} else {
+				snprintf(statement,sizeof(statement),"select origin,realm from turn_origin_to_realm order by origin,realm");
+			}
+			int res = mysql_query(myc, statement);
+			if(res) {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error retrieving MySQL DB information: %s\n",mysql_error(myc));
+			} else {
+				MYSQL_RES *mres = mysql_store_result(myc);
+				if(!mres) {
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error retrieving MySQL DB information: %s\n",mysql_error(myc));
+				} else if(mysql_field_count(myc)!=2) {
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unknown error retrieving MySQL DB information: %s\n",statement);
+				} else {
+					for(;;) {
+						MYSQL_ROW row = mysql_fetch_row(mres);
+						if(!row) {
+							break;
+						} else {
+							if(row[0] && row[1]) {
+								printf("%s ==>> %s\n",row[0],row[1]);
+							}
+						}
+					}
+				}
+
+				if(mres)
+					mysql_free_result(mres);
+			}
+		}
+#endif
+	} else if(is_redis_userdb()) {
+#if !defined(TURN_NO_HIREDIS)
+		redisContext *rc = get_redis_connection();
+		if(rc) {
+			secrets_list_t keys;
+			size_t isz = 0;
+
+			init_secrets_list(&keys);
+
+			redisReply *reply = NULL;
+
+			{
+				reply = (redisReply*)redisCommand(rc, "keys turn/origin/*");
+				if(reply) {
+
+					if (reply->type == REDIS_REPLY_ERROR)
+						TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", reply->str);
+					else if (reply->type != REDIS_REPLY_ARRAY) {
+						if (reply->type != REDIS_REPLY_NIL)
+							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", reply->type);
+					} else {
+						size_t i;
+						size_t offset = strlen("turn/origin/");
+						for (i = 0; i < reply->elements; ++i) {
+							add_to_secrets_list(&keys,reply->element[i]->str+offset);
+						}
+					}
+					turnFreeRedisReply(reply);
+				}
+			}
+
+			for(isz=0;isz<keys.sz;++isz) {
+				char *o = keys.secrets[isz];
+
+				reply = (redisReply*)redisCommand(rc, "get turn/origin/%s",o);
+				if(reply) {
+
+					if (reply->type == REDIS_REPLY_ERROR)
+						TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", reply->str);
+					else if (reply->type != REDIS_REPLY_STRING) {
+						if (reply->type != REDIS_REPLY_NIL)
+							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", reply->type);
+					} else {
+						if(!(realm && realm[0] && strcmp((char*)realm,reply->str))) {
+							printf("%s ==>> %s\n",o,reply->str);
+						}
+					}
+					turnFreeRedisReply(reply);
+				}
+			}
+
+			clean_secrets_list(&keys);
+		}
+#endif
+	}
+
+	return 0;
+}
+
 int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, u08bits *origin, TURNADMIN_COMMAND_TYPE ct, int is_st)
 {
 	hmackey_t key;
@@ -2219,6 +2348,10 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, u08b
 
 	if(ct == TA_LIST_USERS) {
 		return list_users(is_st, realm);
+	}
+
+	if(ct == TA_LIST_ORIGINS) {
+		return list_origins(realm);
 	}
 
 	if(ct == TA_SHOW_SECRET) {

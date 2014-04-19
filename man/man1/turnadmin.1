@@ -100,6 +100,12 @@ List short\-term users in the database.
 Show stored shared secrets for TURN REST API
 .PP
 \fB\-X\fP, \fB\-\-delete\-secret\fP=<value> Delete a shared secret.
+.RS
+.TP
+.B
+\fB\-\-delete\-all_secrets\fP
+Delete all shared secrets for REST API.
+.RE
 .TP
 .B
 \fB\-O\fP, \fB\-\-add\-origin\fP
@@ -110,11 +116,14 @@ Add origin\-to\-realm relation.
 Delete origin\-to\-realm relation.
 .TP
 .B
-\fB\-\-delete\-all_secrets\fP
-Delete all shared secrets for REST API.
+\fB\-I\fP, \fB\-\-list\-origins\fP
+List origin\-to\-realm relations.
 .PP
 NOTE: if you are using the flat file for the user database, then you will have 
 to use a text editor to set or show the shared secrets.
+.PP
+NOTE: the origin functionality is not supported with flat user db file, 
+a "real" database must be used.
 .TP
 .B
 Options with required values:
@@ -201,6 +210,14 @@ $ \fIturnadmin\fP \fB\-\-mysql\-userdb\fP="<db\-connection\-string>" \fB\-r\fP <
 Delete origin\-to\-realm relation from Redis DB:
 .PP
 $ \fIturnadmin\fP \fB\-\-redis\-userdb\fP="<db\-connection\-string>" \fB\-o\fP <origin>
+.PP
+List all origin\-to\-realm relations in Redis DB:
+.PP
+$ \fIturnadmin\fP \fB\-\-redis\-userdb\fP="<db\-connection\-string>" \fB\-I\fP
+.PP
+List the origin\-to\-realm relations in PostgreSQL DB for a single realm:
+.PP
+$ \fIturnadmin\fP \fB\-\-psql\-userdb\fP="<db\-connection\-string>" \fB\-I\fP \fB\-r\fP <realm>
 .TP
 .B
 Help:

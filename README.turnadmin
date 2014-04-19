@@ -66,15 +66,19 @@ Commands:
 -S, --show-secret	Show stored shared secrets for TURN REST API
 
 -X, --delete-secret=<value> Delete a shared secret.
-
+	--delete-all_secrets	Delete all shared secrets for REST API.
+	
 -O, --add-origin		Add origin-to-realm relation.
 
 -R, --del-origin		Delete origin-to-realm relation.
- 
---delete-all_secrets	Delete all shared secrets for REST API.
+
+-I, --list-origins		List origin-to-realm relations.
 
 NOTE: if you are using the flat file for the user database, then you will have 
 to use a text editor to set or show the shared secrets.
+
+NOTE: the origin functionality is not supported with flat user db file, 
+a "real" database must be used.
   
 Options with required values:  
 
@@ -130,6 +134,14 @@ $ turnadmin --mysql-userdb="<db-connection-string>" -r <realm> -o <origin>
 Delete origin-to-realm relation from Redis DB:
 
 $ turnadmin --redis-userdb="<db-connection-string>" -o <origin>
+
+List all origin-to-realm relations in Redis DB:
+
+$ turnadmin --redis-userdb="<db-connection-string>" -I
+
+List the origin-to-realm relations in PostgreSQL DB for a single realm:
+
+$ turnadmin --psql-userdb="<db-connection-string>" -I -r <realm>
   
 Help:  
 
