@@ -352,12 +352,15 @@ Options with required values:
 			by turnadmin command. In the second case,
 			the key must be prepended with 0x symbols.
 			The key is calculated over the user name, 
-			the realm, and the user password.
+			the user realm, and the user password.
 			This setting may not be used with TURN REST API or
 			with short-term credentials mechanism.
 
--r, --realm		Realm to be used for all users. Must be used with long-term credentials mechanism 
-			or with TURN REST API.
+-r, --realm		The default realm to be used for the users when no explicit 
+			origin/realm relationship was found in the database, or if the TURN
+			server is not using any database (just the commands-line settings
+			and the userdb file). Must be used with long-term credentials 
+			mechanism or with TURN REST API.
 
 -C, --rest-api-separator	This is the timestamp/username separator symbol (character) in TURN REST API.
 				The default value is :.
@@ -510,10 +513,11 @@ WEBRTC USAGE
 
 This is a set of notes for the WebRTC users:
 
-1) WebRTC uses long-term authentication mechanism, so you have to use -a option (or --lt-cred-mech).
-WebRTC relaying will not work with anonymous access or with short-term authentication.
-With -a option, do not forget to set the realm (-r option). You will also have to set up
-the user accounts, for that you have a number of options:
+1) WebRTC uses long-term authentication mechanism, so you have to use -a 
+option (or --lt-cred-mech). WebRTC relaying will not work with anonymous access 
+or with short-term authentication. With -a option, do not forget to set the 
+default realm (-r option). You will also have to set up the user accounts, 
+for that you have a number of options:
 
 	a) command-line options (-u).
 	
@@ -565,8 +569,10 @@ http://tools.ietf.org/html/rfc5389#section-10.2
 http://tools.ietf.org/html/rfc5389#section-15.4
 
 For authentication, each user must know two things: the username and the 
-password. The nonce and the realm values are supplied by the TURN server. 
-But LTCM is not saying anything about the nature and about the persistence 
+password. Optionally, the user must supply the ORIGIN value, so that the 
+server can figure out the realm to be used for the user. The nonce and 
+the realm values are supplied by the TURN server. But LTCM is not saying 
+anything about the nature and about the persistence 
 of the username and of the password; and this is used by the REST API.
 
 In the TURN REST API, there is no persistent passwords for users. A user has 

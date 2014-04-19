@@ -28,6 +28,9 @@ is equivalent to:
 
  $ turnadmin --key ...
 
+You have always the use the -r <realm> option with commands for long term credentials - 
+because data for multiple realms can be stored in the same database.
+ 
 =====================================
 
   NAME
@@ -91,17 +94,17 @@ Generate a key:
 
 $ turnadmin -k -u <username> -r <realm> -p <password>
   
-Add/update a user (and realm) in the userdb file or in the database:
+Add/update a user in the userdb file or in the database:
 
 $ turnadmin -a [-b <userdb-file> | -e <db-connection-string> | -M <db-connection-string> | -N <db-connection-string> ] -u <username> -r <realm> -p <password>
   
 Delete a user from the userdb file or from the database:
 
-$ turnadmin -d [-b <userdb-file> | -e <db-connection-string> | -M <db-connection-string> | -N <db-connection-string> ] -u <username>
+$ turnadmin -d [-b <userdb-file> | -e <db-connection-string> | -M <db-connection-string> | -N <db-connection-string> ] -u <username> -r <realm>
 
 List all long-term users in MySQL database:
 
-$ turnadmin -l --mysql-userdb="<db-connection-string>"
+$ turnadmin -l --mysql-userdb="<db-connection-string>" -r <realm>
 
 List all short-term users in Redis database:
 
@@ -109,11 +112,11 @@ $ turnadmin -L --redis-userdb="<db-connection-string>"
 
 Set secret in MySQL database:
 
-$ turnadmin -s <secret> --mysql-userdb="<db-connection-string>"
+$ turnadmin -s <secret> --mysql-userdb="<db-connection-string>" -r <realm>
 
 Show secret stored in PostgreSQL database:
 
-$ turnadmin -S --psql-userdb="<db-connection-string>"
+$ turnadmin -S --psql-userdb="<db-connection-string>" -r <realm>
   
 Help:  
 

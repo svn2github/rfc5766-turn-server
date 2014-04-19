@@ -715,8 +715,9 @@ CREATE TABLE turn_origin_to_realm (
 );
 
 # Realm options.
-# Valid options are max-bps,
-# total-quota and user-quota.
+# Valid options are 'max-bps',
+# 'total-quota' and 'user-quota'.
+# Values for them are integers (in text form).
 #
 CREATE TABLE turn_realm_option (
 	realm varchar(512),
