@@ -2337,7 +2337,232 @@ static int list_origins(u08bits *realm)
 	return 0;
 }
 
-int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, u08bits *origin, TURNADMIN_COMMAND_TYPE ct, int is_st)
+static int set_realm_option_one(u08bits *realm, vint value, const char* opt)
+{
+	UNUSED_ARG(realm);
+	UNUSED_ARG(value);
+	UNUSED_ARG(opt);
+	if(value<0)
+		return 0;
+#if !defined(TURN_NO_PQ)
+	if(is_pqsql_userdb()) {
+		char statement[LONG_STRING_SIZE];
+		PGconn *pqc = get_pqdb_connection();
+		if(pqc) {
+			{
+				snprintf(statement,sizeof(statement),"delete from turn_realm_option where realm='%s' and opt='%s'",realm,opt);
+				PGresult *res = PQexec(pqc, statement);
+				if(res) {
+					PQclear(res);
+				}
+			}
+			if(value>0) {
+				snprintf(statement,sizeof(statement),"insert into turn_realm_option (realm,opt,value) values('%s','%s','%d')",realm,opt,(int)value);
+				PGresult *res = PQexec(pqc, statement);
+				if(!res || (PQresultStatus(res) != PGRES_COMMAND_OK)) {
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error inserting realm option information: %s\n",PQerrorMessage(pqc));
+				}
+				if(res) {
+					PQclear(res);
+				}
+			}
+		}
+	}
+#endif
+
+#if !defined(TURN_NO_MYSQL)
+	if (is_mysql_userdb()) {
+		char statement[LONG_STRING_SIZE];
+		MYSQL * myc = get_mydb_connection();
+		if (myc) {
+			{
+				snprintf(statement,sizeof(statement),"delete from turn_realm_option where realm='%s' and opt='%s'",realm,opt);
+				mysql_query(myc, statement);
+			}
+			if(value>0) {
+				snprintf(statement,sizeof(statement),"insert into turn_realm_option (realm,opt,value) values('%s','%s','%d')",realm,opt,(int)value);
+				int res = mysql_query(myc, statement);
+				if (res) {
+					TURN_LOG_FUNC(
+								TURN_LOG_LEVEL_ERROR,
+								"Error inserting realm option information: %s\n",
+								mysql_error(myc));
+				}
+			}
+		}
+	}
+#endif
+
+#if !defined(TURN_NO_HIREDIS)
+	if(is_redis_userdb()) {
+		redisContext *rc = get_redis_connection();
+		if(rc) {
+			char s[LONG_STRING_SIZE];
+
+			if(value>0)
+				snprintf(s,sizeof(s),"set turn/realm/%s/%s %d", (char*)realm, opt, (int)value);
+			else
+				snprintf(s,sizeof(s),"del turn/realm/%s/%s", (char*)realm, opt);
+
+			turnFreeRedisReply(redisCommand(rc, s));
+			turnFreeRedisReply(redisCommand(rc, "save"));
+		}
+	}
+#endif
+	return 0;
+}
+
+static int set_realm_option(u08bits *realm, perf_options_t *po)
+{
+	set_realm_option_one(realm,po->max_bps,"max-bps");
+	set_realm_option_one(realm,po->user_quota,"user-quota");
+	set_realm_option_one(realm,po->total_quota,"total-quota");
+	return 0;
+}
+
+static int list_realm_options(u08bits *realm)
+{
+	donot_print_connection_success = 1;
+
+	if(is_pqsql_userdb()){
+#if !defined(TURN_NO_PQ)
+		char statement[LONG_STRING_SIZE];
+		PGconn *pqc = get_pqdb_connection();
+		if(pqc) {
+			if(realm && realm[0]) {
+				snprintf(statement,sizeof(statement),"select realm,opt,value from turn_realm_option where realm='%s' order by realm,opt",realm);
+			} else {
+				snprintf(statement,sizeof(statement),"select realm,opt,value from turn_realm_option order by realm,opt");
+			}
+			PGresult *res = PQexec(pqc, statement);
+			if(!res || (PQresultStatus(res) != PGRES_TUPLES_OK)) {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error retrieving PostgreSQL DB information: %s\n",PQerrorMessage(pqc));
+			} else {
+				int i = 0;
+				for(i=0;i<PQntuples(res);i++) {
+					char *rval = PQgetvalue(res,i,0);
+					if(rval) {
+						char *oval = PQgetvalue(res,i,1);
+						if(oval) {
+							char *vval = PQgetvalue(res,i,2);
+							if(vval) {
+								printf("%s[%s]=%s\n",oval,rval,vval);
+							}
+						}
+					}
+				}
+			}
+			if(res) {
+				PQclear(res);
+			}
+		}
+#endif
+	} else if(is_mysql_userdb()){
+#if !defined(TURN_NO_MYSQL)
+		char statement[LONG_STRING_SIZE];
+		MYSQL * myc = get_mydb_connection();
+		if(myc) {
+			if(realm && realm[0]) {
+				snprintf(statement,sizeof(statement),"select realm,opt,value from turn_realm_option where realm='%s' order by realm,opt",realm);
+			} else {
+				snprintf(statement,sizeof(statement),"select realm,opt,value from turn_realm_option order by realm,opt");
+			}
+			int res = mysql_query(myc, statement);
+			if(res) {
+				TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error retrieving MySQL DB information: %s\n",mysql_error(myc));
+			} else {
+				MYSQL_RES *mres = mysql_store_result(myc);
+				if(!mres) {
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error retrieving MySQL DB information: %s\n",mysql_error(myc));
+				} else if(mysql_field_count(myc)!=3) {
+					TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unknown error retrieving MySQL DB information: %s\n",statement);
+				} else {
+					for(;;) {
+						MYSQL_ROW row = mysql_fetch_row(mres);
+						if(!row) {
+							break;
+						} else {
+							if(row[0] && row[1] && row[2]) {
+								printf("%s[%s]=%s\n",row[1],row[0],row[2]);
+							}
+						}
+					}
+				}
+
+				if(mres)
+					mysql_free_result(mres);
+			}
+		}
+#endif
+	} else if(is_redis_userdb()) {
+#if !defined(TURN_NO_HIREDIS)
+		redisContext *rc = get_redis_connection();
+		if(rc) {
+			secrets_list_t keys;
+			size_t isz = 0;
+
+			init_secrets_list(&keys);
+
+			redisReply *reply = NULL;
+
+			{
+				if(realm && realm[0]) {
+					reply = (redisReply*)redisCommand(rc, "keys turn/realm/%s/*",realm);
+				} else {
+					reply = (redisReply*)redisCommand(rc, "keys turn/realm/*");
+				}
+				if(reply) {
+
+					if (reply->type == REDIS_REPLY_ERROR)
+						TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", reply->str);
+					else if (reply->type != REDIS_REPLY_ARRAY) {
+						if (reply->type != REDIS_REPLY_NIL)
+							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", reply->type);
+					} else {
+						size_t i;
+						for (i = 0; i < reply->elements; ++i) {
+							if(strstr(reply->element[i]->str,"/max-bps")||
+								strstr(reply->element[i]->str,"/total-quota")||
+								strstr(reply->element[i]->str,"/user-quota")) {
+								add_to_secrets_list(&keys,reply->element[i]->str);
+							}
+						}
+					}
+					turnFreeRedisReply(reply);
+				}
+			}
+
+			size_t offset = strlen("turn/realm/");
+
+			for(isz=0;isz<keys.sz;++isz) {
+				char *o = keys.secrets[isz];
+
+				reply = (redisReply*)redisCommand(rc, "get %s",o);
+				if(reply) {
+
+					if (reply->type == REDIS_REPLY_ERROR)
+						TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Error: %s\n", reply->str);
+					else if (reply->type != REDIS_REPLY_STRING) {
+						if (reply->type != REDIS_REPLY_NIL)
+							TURN_LOG_FUNC(TURN_LOG_LEVEL_ERROR, "Unexpected type: %d\n", reply->type);
+					} else {
+						printf("%s = %s\n",o+offset,reply->str);
+					}
+					turnFreeRedisReply(reply);
+				}
+			}
+
+			clean_secrets_list(&keys);
+		}
+#endif
+	}
+
+	return 0;
+}
+
+int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, u08bits *origin,
+				TURNADMIN_COMMAND_TYPE ct, int is_st,
+				perf_options_t *po)
 {
 	hmackey_t key;
 	char skey[sizeof(hmackey_t)*2+1];
@@ -2375,6 +2600,19 @@ int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, u08b
 	if(ct == TA_DEL_ORIGIN) {
 		must_set_admin_origin(origin);
 		return del_origin(origin);
+	}
+
+	if(ct == TA_SET_REALM_OPTION) {
+		must_set_admin_realm(realm);
+		if(!(po && (po->max_bps>=0 || po->total_quota>=0 || po->user_quota>=0))) {
+			fprintf(stderr, "The operation cannot be completed: a realm option must be set.\n");
+			exit(-1);
+		}
+		return set_realm_option(realm,po);
+	}
+
+	if(ct == TA_LIST_REALM_OPTIONS) {
+		return list_realm_options(realm);
 	}
 
 	must_set_admin_user(user);

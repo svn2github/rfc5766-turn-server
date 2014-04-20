@@ -542,11 +542,21 @@ The default value is :.
 .B
 \fB\-q\fP, \fB\-\-user\-quota\fP
 Per\-user allocations quota: how many concurrent 
-allocations a user can create.
+allocations a user can create. This option can also be set 
+through the database, for a particular realm.
 .TP
 .B
 \fB\-Q\fP, \fB\-\-total\-quota\fP
 Total allocations quota: global limit on concurrent allocations.
+This option can also be set through the database, for a particular realm.
+.TP
+.B
+\fB\-s\fP, \fB\-\-max\-bps\fP
+Max bytes\-per\-second bandwidth a TURN session is allowed to handle
+(input and output network streams are treated separately). Anything above 
+that limit will be dropped or temporary suppressed (within the
+available buffer limits). This option can also be set through the 
+database, for a particular realm.
 .TP
 .B
 \fB\-\-static\-auth\-secret\fP
@@ -556,13 +566,6 @@ in turn_secret table in user database (if present). The database\-stored
 value can be changed on\-the\-fly by a separate program, so this is why
 that other mode is dynamic. Multiple shared secrets can be used
 (both in the database and in the "static" fashion).
-.TP
-.B
-\fB\-s\fP, \fB\-\-max\-bps\fP
-Max bytes\-per\-second bandwidth a TURN session is allowed to handle
-(input and output network streams are treated separately). Anything above 
-that limit will be dropped or temporary suppressed (within the
-available buffer limits).
 .TP
 .B
 \fB\-\-cert\fP

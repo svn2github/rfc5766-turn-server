@@ -74,6 +74,10 @@ Commands:
 
 -I, --list-origins		List origin-to-realm relations.
 
+-g, --set-realm-option		Set realm params: max-bps, total-quota, user-quota.
+
+-G, --list-realm-options	List realm params.
+
 NOTE: if you are using the flat file for the user database, then you will have 
 to use a text editor to set or show the shared secrets.
 
@@ -96,7 +100,10 @@ Options with required values:
 -o, --origin		Origin
 -H, --sha256	Use SHA256 as the keys hash function (a non-standard feature). 
 				By default, MD5 is used for the key storage encryption 
-				(as required by the current STUN/TURNstandards). 
+				(as required by the current STUN/TURNstandards).
+--max-bps		Set value of realm's max-bps parameter.
+--total-quota	Set value of realm's total-quota parameter.
+--user-quota	Set value of realm's user-quota parameter. 
 -h, --help		Help.
   
 Generate a key:  

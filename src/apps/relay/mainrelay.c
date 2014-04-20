@@ -83,7 +83,7 @@ DEFAULT_STUN_PORT,DEFAULT_STUN_TLS_PORT,0,0,1,
 NEV_UNKNOWN, 
 { "Unknown", "UDP listening socket per session", "UDP thread per network endpoint", "UDP thread per CPU core" },
 //////////////// Relay servers //////////////////////////////////
-0,LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
+LOW_DEFAULT_PORTS_BOUNDARY,HIGH_DEFAULT_PORTS_BOUNDARY,0,0,"",
 0,NULL,0,NULL,DEFAULT_GENERAL_RELAY_SERVERS_NUMBER,0,
 ////////////// Auth server /////////////////////////////////////
 {NULL,NULL,NULL,0
@@ -98,7 +98,7 @@ NEV_UNKNOWN,
 /////////////// stop server ////////////////
 0,
 /////////////// MISC PARAMS ////////////////
-0,0,0,0,0,SHATYPE_SHA1,':',0,0,TURN_CREDENTIALS_NONE,0,0,0,
+0,0,0,0,0,SHATYPE_SHA1,':',0,0,TURN_CREDENTIALS_NONE,0,0,0,0,
 ///////////// Users DB //////////////
 { TURN_USERDB_TYPE_FILE, {"\0",NULL}, {0,NULL,NULL, {NULL,0}} }
 
@@ -403,11 +403,14 @@ static char Usage[] = "Usage: turnserver [options]\n"
 "						and the userdb file). Must be used with long-term credentials \n"
 "						mechanism or with TURN REST API.\n"
 " -q, --user-quota		<number>	Per-user allocation quota: how many concurrent allocations a user can create.\n"
+"						This option can also be set through the database, for a particular realm.\n"
 " -Q, --total-quota		<number>	Total allocations quota: global limit on concurrent allocations.\n"
+"						This option can also be set through the database, for a particular realm.\n"
 " -s, --max-bps			<number>	Max bytes-per-second bandwidth a TURN session is allowed to handle\n"
 "						(input and output network streams are treated separately). Anything above\n"
 "						that limit will be dropped or temporary suppressed\n"
 "						(within the available buffer limits).\n"
+"						This option can also be set through the database, for a particular realm.\n"
 " -c				<filename>	Configuration file name (default - turnserver.conf).\n"
 " -b, --userdb			<filename>	User database file name (default - turnuserdb.conf) for long-term credentials only.\n"
 #if !defined(TURN_NO_PQ)
@@ -565,8 +568,10 @@ static char AdminUsage[] = "Usage: turnadmin [command] [options]\n"
 	"	-O, --add-origin		Add origin-to-realm relation.\n"
 	"	-R, --del-origin		Delete origin-to-realm relation.\n"
 	"	-I, --list-origins		List origin-to-realm relations.\n"
+	"	-g, --set-realm-option		Set realm params: max-bps, total-quota, user-quota.\n"
+	"	-G, --list-realm-options	List realm params.\n"
 #endif
-	"Options:\n"
+	"Options with mandatory values:\n"
 	"	-b, --userdb			User database file, if flat DB file is used.\n"
 #if !defined(TURN_NO_PQ)
 	"	-e, --psql-userdb, --sql-userdb	PostgreSQL user database connection string, if PostgreSQL DB is used.\n"
@@ -585,11 +590,17 @@ static char AdminUsage[] = "Usage: turnadmin [command] [options]\n"
 #endif
 	"	-H, --sha256			Use SHA256 digest function to be used for the message integrity.\n"
 	"					By default, the server SHA1 (as per TURN standard specs).\n"
+	"	--max-bps			Set value of realm's max-bps parameter.\n"
+	"					Setting to zero value means removal of the option.\n"
+	"	--total-quota			Set value of realm's total-quota parameter.\n"
+	"					Setting to zero value means removal of the option.\n"
+	"	--user-quota			Set value of realm's user-quota parameter.\n"
+	"					Setting to zero value means removal of the option.\n"
 	"	-h, --help			Help\n";
 
 #define OPTIONS "c:d:p:L:E:X:i:m:l:r:u:b:e:M:N:O:q:Q:s:C:vVofhznaAS"
 
-#define ADMIN_OPTIONS "ORIHlLkaADSdb:e:M:N:u:r:p:s:X:o:h"
+#define ADMIN_OPTIONS "gGORIHlLkaADSdb:e:M:N:u:r:p:s:X:o:h"
 
 enum EXTRA_OPTS {
 	NO_UDP_OPT=256,
@@ -647,7 +658,10 @@ enum EXTRA_OPTS {
 	NO_SSLV3_OPT,
 	NO_TLSV1_OPT,
 	NO_TLSV1_1_OPT,
-	NO_TLSV1_2_OPT
+	NO_TLSV1_2_OPT,
+	ADMIN_MAX_BPS_OPT,
+	ADMIN_TOTAL_QUOTA_OPT,
+	ADMIN_USER_QUOTA_OPT
 };
 
 static struct option long_options[] = {
@@ -749,7 +763,7 @@ static struct option admin_long_options[] = {
 				{ "delete", no_argument, NULL, 'd' },
 				{ "list", no_argument, NULL, 'l' },
 				{ "list-st", no_argument, NULL, 'L' },
-#if !defined(TURN_NO_PQ) || !defined(TURN_NO_MYSQL)
+#if !defined(TURN_NO_PQ) || !defined(TURN_NO_MYSQL) || !defined(TURN_NO_HIREDIS)
 				{ "set-secret", required_argument, NULL, 's' },
 				{ "show-secret", no_argument, NULL, 'S' },
 				{ "delete-secret", required_argument, NULL, 'X' },
@@ -777,6 +791,11 @@ static struct option admin_long_options[] = {
 				{ "del-origin", no_argument, NULL, 'R' },
 				{ "list-origins", required_argument, NULL, 'I' },
 				{ "origin", required_argument, NULL, 'o' },
+				{ "set-realm-option", no_argument, NULL, 'g' },
+				{ "list-realm-option", no_argument, NULL, 'G' },
+				{ "user-quota", required_argument, NULL, ADMIN_USER_QUOTA_OPT },
+				{ "total-quota", required_argument, NULL, ADMIN_TOTAL_QUOTA_OPT },
+				{ "max-bps", required_argument, NULL, ADMIN_MAX_BPS_OPT },
 #endif
 				{ "help", no_argument, NULL, 'h' },
 				{ NULL, no_argument, NULL, 0 }
@@ -1317,9 +1336,25 @@ static int adminmain(int argc, char **argv)
 	u08bits pwd[STUN_MAX_PWD_SIZE+1]="";
 	u08bits secret[AUTH_SECRET_SIZE+1]="";
 	u08bits origin[STUN_MAX_ORIGIN_SIZE+1]="";
+	perf_options_t po = {-1,-1,-1};
 
 	while (((c = getopt_long(argc, argv, ADMIN_OPTIONS, admin_long_options, NULL)) != -1)) {
 		switch (c){
+		case 'g':
+			ct = TA_SET_REALM_OPTION;
+			break;
+		case 'G':
+			ct = TA_LIST_REALM_OPTIONS;
+			break;
+		case ADMIN_USER_QUOTA_OPT:
+			po.user_quota = (vint)atoi(optarg);
+			break;
+		case ADMIN_TOTAL_QUOTA_OPT:
+			po.total_quota = (vint)atoi(optarg);
+			break;
+		case ADMIN_MAX_BPS_OPT:
+			po.max_bps = (vint)atoi(optarg);
+			break;
 		case 'O':
 			ct = TA_ADD_ORIGIN;
 			break;
@@ -1356,7 +1391,7 @@ static int adminmain(int argc, char **argv)
 			ct = TA_LIST_USERS;
 			is_st = 1;
 			break;
-#if !defined(TURN_NO_PQ) || !defined(TURN_NO_MYSQL)
+#if !defined(TURN_NO_PQ) || !defined(TURN_NO_MYSQL) || !defined(TURN_NO_HIREDIS)
 		case 's':
 			ct = TA_SET_SECRET;
 			STRCPY(secret,optarg);
@@ -1454,7 +1489,7 @@ static int adminmain(int argc, char **argv)
 		exit(-1);
 	}
 
-	return adminuser(user, realm, pwd, secret, origin, ct, is_st);
+	return adminuser(user, realm, pwd, secret, origin, ct, is_st, &po);
 }
 
 static void print_features(unsigned long mfn)

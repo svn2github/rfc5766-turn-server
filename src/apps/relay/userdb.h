@@ -120,7 +120,9 @@ enum _TURNADMIN_COMMAND_TYPE {
 	TA_DEL_SECRET,
 	TA_ADD_ORIGIN,
 	TA_DEL_ORIGIN,
-	TA_LIST_ORIGINS
+	TA_LIST_ORIGINS,
+	TA_SET_REALM_OPTION,
+	TA_LIST_REALM_OPTIONS
 };
 
 typedef enum _TURNADMIN_COMMAND_TYPE TURNADMIN_COMMAND_TYPE;
@@ -198,7 +200,7 @@ void auth_ping(
 );
 void reread_realms(void);
 int add_user_account(char *user, int dynamic);
-int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, u08bits *origin, TURNADMIN_COMMAND_TYPE ct, int is_st);
+int adminuser(u08bits *user, u08bits *realm, u08bits *pwd, u08bits *secret, u08bits *origin, TURNADMIN_COMMAND_TYPE ct, int is_st, perf_options_t* po);
 
 int add_ip_list_range(char* range, ip_range_list_t * list);
 

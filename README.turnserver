@@ -366,9 +366,17 @@ Options with required values:
 				The default value is :.
 
 -q, --user-quota	Per-user allocations quota: how many concurrent 
-			allocations a user can create.
+			allocations a user can create. This option can also be set 
+			through the database, for a particular realm.
 
 -Q, --total-quota	Total allocations quota: global limit on concurrent allocations.
+			This option can also be set through the database, for a particular realm.
+
+-s, --max-bps		Max bytes-per-second bandwidth a TURN session is allowed to handle
+			(input and output network streams are treated separately). Anything above 
+			that limit will be dropped or temporary suppressed (within the
+			available buffer limits). This option can also be set through the 
+			database, for a particular realm.
 
 --static-auth-secret	Static authentication secret value (a string) for TURN REST API only.
 			If not set, then the turn server will try to use the dynamic value 
@@ -376,11 +384,6 @@ Options with required values:
 			value can be changed on-the-fly by a separate program, so this is why
 			that other mode is dynamic. Multiple shared secrets can be used
 			(both in the database and in the "static" fashion).
-
--s, --max-bps		Max bytes-per-second bandwidth a TURN session is allowed to handle
-			(input and output network streams are treated separately). Anything above 
-			that limit will be dropped or temporary suppressed (within the
-			available buffer limits).
 
 --cert			Certificate file, PEM format. Same file 
 			search rules applied as for the configuration 

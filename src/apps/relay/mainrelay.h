@@ -255,8 +255,6 @@ typedef struct _turn_params_ {
 
 //////////////// Relay servers /////////////
 
-  band_limit_t max_bps;
-
   u16bits min_port;
   u16bits max_port;
 
@@ -306,6 +304,7 @@ typedef struct _turn_params_ {
   vint mobility;
   turn_credential_type ct;
   int use_auth_secret_with_timestamp;
+  band_limit_t max_bps;
   vint total_quota;
   vint user_quota;
 

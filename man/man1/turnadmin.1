@@ -118,6 +118,14 @@ Delete origin\-to\-realm relation.
 .B
 \fB\-I\fP, \fB\-\-list\-origins\fP
 List origin\-to\-realm relations.
+.TP
+.B
+\fB\-g\fP, \fB\-\-set\-realm\-option\fP
+Set realm params: max\-bps, total\-quota, user\-quota.
+.TP
+.B
+\fB\-G\fP, \fB\-\-list\-realm\-options\fP
+List realm params.
 .PP
 NOTE: if you are using the flat file for the user database, then you will have 
 to use a text editor to set or show the shared secrets.
@@ -168,7 +176,19 @@ Origin
 \fB\-H\fP, \fB\-\-sha256\fP
 Use SHA256 as the keys hash function (a non\-standard feature). 
 By default, MD5 is used for the key storage encryption 
-(as required by the current STUN/TURNstandards). 
+(as required by the current STUN/TURNstandards).
+.TP
+.B
+\fB\-\-max\-bps\fP
+Set value of realm's max\-bps parameter.
+.TP
+.B
+\fB\-\-total\-quota\fP
+Set value of realm's total\-quota parameter.
+.TP
+.B
+\fB\-\-user\-quota\fP
+Set value of realm's user\-quota parameter. 
 .TP
 .B
 \fB\-h\fP, \fB\-\-help\fP
